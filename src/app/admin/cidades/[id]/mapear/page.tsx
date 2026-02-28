@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Save, Trash2, MapPin, Search } from "lucide-react"
+import { ArrowLeft, Save, Trash2, Search } from "lucide-react"
 import CitySearch from "@/components/admin/CitySearch"
 import MapEditorWrapper from "@/components/admin/MapEditorWrapper"
 

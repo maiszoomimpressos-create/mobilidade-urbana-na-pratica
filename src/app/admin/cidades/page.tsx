@@ -1,8 +1,6 @@
 "use client"
 
-"use client"
-
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -56,7 +54,7 @@ interface City {
 export default function CidadesPage() {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedCity, setSelectedCity] = useState<City | null>(null)
+  const [, setSelectedCity] = useState<City | null>(null)
 
   const filteredCities = cities.filter(
     (city) =>
@@ -198,7 +196,7 @@ export default function CidadesPage() {
           <CardContent className="py-12 text-center">
             <MapPin className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
             <p className="text-muted-foreground">
-              Nenhuma cidade encontrada com o termo "{searchTerm}"
+              Nenhuma cidade encontrada com o termo &quot;{searchTerm}&quot;
             </p>
           </CardContent>
         </Card>

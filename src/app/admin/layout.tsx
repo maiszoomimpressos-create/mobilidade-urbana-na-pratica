@@ -6,7 +6,7 @@ import { useEffect } from "react"
 import AdminSidebar from "@/components/admin/AdminSidebar"
 import { signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
-import { MapPin, LogOut } from "lucide-react"
+import { LogOut } from "lucide-react"
 
 export default function AdminLayout({
   children,
