@@ -6,7 +6,7 @@ async function main() {
   console.log('🌱 Iniciando seed do banco de dados...')
 
   // Criar roles padrão
-  const adminRole = await prisma.role.upsert({
+  await prisma.role.upsert({
     where: { slug: 'admin' },
     update: {},
     create: {
@@ -16,7 +16,7 @@ async function main() {
     },
   })
 
-  const managerRole = await prisma.role.upsert({
+  await prisma.role.upsert({
     where: { slug: 'manager' },
     update: {},
     create: {
@@ -26,7 +26,7 @@ async function main() {
     },
   })
 
-  const driverRole = await prisma.role.upsert({
+  await prisma.role.upsert({
     where: { slug: 'driver' },
     update: {},
     create: {
@@ -36,7 +36,7 @@ async function main() {
     },
   })
 
-  const passengerRole = await prisma.role.upsert({
+  await prisma.role.upsert({
     where: { slug: 'passenger' },
     update: {},
     create: {

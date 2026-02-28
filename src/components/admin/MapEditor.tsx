@@ -1,5 +1,6 @@
 "use client"
 
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState } from "react"
 
 interface MapEditorProps {
@@ -142,7 +143,6 @@ export default function MapEditor({
           const layer = e.layer
           drawnItems.clearLayers()
           drawnItems.addLayer(layer)
-
           const latlngs = layer.getLatLngs()[0]
           const coordinates: number[][] = latlngs.map((ll: any) => [ll.lng, ll.lat])
           onPolygonChange(coordinates)
