@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, type Feature } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -184,7 +184,7 @@ async function main() {
     },
   ]
 
-  const createdFeatures = []
+  const createdFeatures: Feature[] = []
 
   for (const feature of features) {
     const created = await prisma.feature.upsert({
