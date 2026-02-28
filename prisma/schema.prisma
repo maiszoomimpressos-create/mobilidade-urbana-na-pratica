@@ -1,0 +1,624 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USUÁRIOS E AUTENTICAÇÃO
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String?   // Hash da senha
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relacionamentos
+  tenantUsers   TenantUser[]
+  accounts      Account[]
+  sessions      Session[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// MULTI-TENANT
+// ============================================
+
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  logo        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  tenantUsers TenantUser[]
+  plans       TenantPlan[]
+  rides       Ride[]
+  drivers     Driver[]
+  passengers  Passenger[]
+  rideTypes   TenantRideType[]
+  customFeatures TenantCustomFeature[]
+  customLimits   TenantCustomLimit[]
+  vehicles    Vehicle[]
+  tenantCities TenantCity[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("tenants")
+}
+
+model TenantUser {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  roleId    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@index([userId])
+  @@map("tenant_users")
+}
+
+// ============================================
+// ROLES E PERMISSÕES
+// ============================================
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  tenantId    String?  // null = role global
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  tenantUsers     TenantUser[]
+  rolePermissions RolePermission[]
+
+  @@index([slug])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  rolePermissions RolePermission[]
+
+  @@index([slug])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  // Relacionamentos
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@map("role_permissions")
+}
+
+// ============================================
+// PLANOS E COBRANÇA
+// ============================================
+
+model Plan {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  interval    String   // monthly, yearly
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  tenantPlans    TenantPlan[]
+  planFeatures   PlanFeature[]
+  planLimits     PlanLimit[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("plans")
+}
+
+model Feature {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  planFeatures       PlanFeature[]
+  tenantCustomFeatures TenantCustomFeature[]
+
+  @@index([slug])
+  @@map("features")
+}
+
+model PlanFeature {
+  id        String   @id @default(cuid())
+  planId    String
+  featureId String
+  createdAt DateTime @default(now())
+
+  // Relacionamentos
+  plan    Plan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureId])
+  @@index([planId])
+  @@map("plan_features")
+}
+
+model PlanLimit {
+  id        String   @id @default(cuid())
+  planId    String
+  limitKey  String   // "max_drivers", "max_cities", etc
+  limitValue Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, limitKey])
+  @@index([planId])
+  @@map("plan_limits")
+}
+
+model TenantPlan {
+  id           String   @id @default(cuid())
+  tenantId     String   @unique
+  planId       String
+  status       String   // active, cancelled, expired
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relacionamentos
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("tenant_plans")
+}
+
+model TenantCustomFeature {
+  id        String   @id @default(cuid())
+  tenantId  String
+  featureId String
+  createdAt DateTime @default(now())
+
+  // Relacionamentos
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, featureId])
+  @@index([tenantId])
+  @@map("tenant_custom_features")
+}
+
+model TenantCustomLimit {
+  id         String   @id @default(cuid())
+  tenantId   String
+  limitKey   String
+  limitValue Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relacionamentos
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, limitKey])
+  @@index([tenantId])
+  @@map("tenant_custom_limits")
+}
+
+// ============================================
+// MOTORISTAS E PASSAGEIROS
+// ============================================
+
+model Driver {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  tenantId    String
+  status      String   @default("offline") // offline, online, in_ride, paused
+  isActive    Boolean  @default(true)
+  rating      Decimal? @db.Decimal(3, 2)
+  totalRides  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vehicles     Vehicle[]
+  rides        Ride[]
+  positions    DriverPosition[]
+  availability DriverAvailability[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([isActive])
+  @@map("drivers")
+}
+
+model Passenger {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  tenantId   String
+  isActive   Boolean  @default(true)
+  rating     Decimal? @db.Decimal(3, 2)
+  totalRides Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relacionamentos
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rides   Ride[]
+
+  @@index([tenantId])
+  @@index([isActive])
+  @@map("passengers")
+}
+
+model Vehicle {
+  id           String   @id @default(cuid())
+  driverId     String
+  tenantId     String
+  brand        String
+  model        String
+  year         Int
+  color        String
+  plate        String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relacionamentos
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([driverId])
+  @@index([tenantId])
+  @@index([plate])
+  @@map("vehicles")
+}
+
+// ============================================
+// GEOLOCALIZAÇÃO
+// ============================================
+
+model DriverPosition {
+  id        String   @id @default(cuid())
+  driverId  String
+  latitude  Decimal  @db.Decimal(10, 8)
+  longitude Decimal  @db.Decimal(11, 8)
+  accuracy  Float?
+  heading   Float?
+  speed     Float?
+  createdAt DateTime @default(now())
+
+  // Relacionamentos
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@index([driverId])
+  @@index([createdAt])
+  @@map("driver_positions")
+}
+
+model City {
+  id        String   @id @default(cuid())
+  name      String
+  state     String
+  country   String   @default("BR")
+  latitude  Decimal  @db.Decimal(10, 8)
+  longitude Decimal  @db.Decimal(11, 8)
+  isActive  Boolean  @default(true)
+  // Área de cobertura (GeoJSON Polygon)
+  coverageArea Json? // { type: "Polygon", coordinates: [[[lng, lat], ...]] }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  rideTypes TenantRideType[]
+  tenantCities TenantCity[]
+
+  @@unique([name, state, country])
+  @@index([isActive])
+  @@map("cities")
+}
+
+model TenantCity {
+  id        String   @id @default(cuid())
+  tenantId  String
+  cityId    String
+  isActive  Boolean  @default(true)
+  // Área de cobertura customizada por tenant (opcional)
+  customCoverageArea Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, cityId])
+  @@index([tenantId])
+  @@index([cityId])
+  @@map("tenant_cities")
+}
+
+// ============================================
+// CORRIDAS
+// ============================================
+
+enum RideStatus {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Ride {
+  id            String     @id @default(cuid())
+  tenantId      String
+  passengerId   String
+  driverId      String?
+  rideTypeId    String?
+  status        RideStatus @default(PENDING)
+  
+  // Localização
+  originLatitude   Decimal  @db.Decimal(10, 8)
+  originLongitude  Decimal  @db.Decimal(11, 8)
+  originAddress    String?
+  destinationLatitude  Decimal?  @db.Decimal(10, 8)
+  destinationLongitude Decimal?  @db.Decimal(11, 8)
+  destinationAddress    String?
+  
+  // Valores
+  estimatedPrice Decimal?  @db.Decimal(10, 2)
+  finalPrice     Decimal?  @db.Decimal(10, 2)
+  distance       Decimal?  @db.Decimal(10, 2) // em km
+  duration       Int?      // em minutos
+  
+  // Timestamps
+  requestedAt    DateTime  @default(now())
+  acceptedAt     DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  cancelledAt    DateTime?
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relacionamentos
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  passenger      Passenger      @relation(fields: [passengerId], references: [id])
+  driver         Driver?        @relation(fields: [driverId], references: [id])
+  rideType       TenantRideType? @relation(fields: [rideTypeId], references: [id])
+  statusHistory  RideStatusHistory[]
+  ratings        Rating[]
+
+  @@index([tenantId])
+  @@index([passengerId])
+  @@index([driverId])
+  @@index([status])
+  @@index([requestedAt])
+  @@map("rides")
+}
+
+model RideStatusHistory {
+  id        String     @id @default(cuid())
+  rideId    String
+  status    RideStatus
+  notes     String?
+  createdAt DateTime   @default(now())
+
+  // Relacionamentos
+  ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  @@index([rideId])
+  @@index([createdAt])
+  @@map("ride_status_history")
+}
+
+model TenantRideType {
+  id          String   @id @default(cuid())
+  tenantId    String
+  cityId      String?
+  name        String
+  slug        String
+  description String?
+  basePrice   Decimal  @db.Decimal(10, 2)
+  pricePerKm  Decimal  @db.Decimal(10, 2)
+  pricePerMin Decimal  @db.Decimal(10, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  city   City?  @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  rides  Ride[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([cityId])
+  @@index([isActive])
+  @@map("tenant_ride_types")
+}
+
+// ============================================
+// AVALIAÇÕES
+// ============================================
+
+model Rating {
+  id        String   @id @default(cuid())
+  rideId    String   @unique
+  fromUserId String  // Quem avaliou
+  toUserId   String  // Quem foi avaliado
+  rating    Int      // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([rating])
+  @@map("ratings")
+}
+
+// ============================================
+// DISPONIBILIDADE
+// ============================================
+
+model DriverAvailability {
+  id        String   @id @default(cuid())
+  driverId  String
+  dayOfWeek Int      // 0-6 (domingo-sábado)
+  startTime String   // HH:mm
+  endTime   String   // HH:mm
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@unique([driverId, dayOfWeek])
+  @@index([driverId])
+  @@map("driver_availability")
+}
+
+// ============================================
+// GERENCIAMENTO DE MAPAS
+// ============================================
+
+enum MapProviderType {
+  GOOGLE_MAPS
+  MAPBOX
+  OPENSTREETMAP
+}
+
+model MapProvider {
+  id          String         @id @default(cuid())
+  type        MapProviderType @unique
+  name        String
+  apiKey      String?        @db.Text
+  isActive    Boolean        @default(true)
+  priority    Int            @default(0) // Ordem de prioridade (0 = primeiro)
+  monthlyLimit Int           @default(0) // Limite mensal de requisições (0 = ilimitado)
+  currentUsage Int           @default(0) // Uso atual no mês
+  lastResetAt DateTime?      // Última vez que o contador foi resetado
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Relacionamentos
+  usageHistory MapProviderUsage[]
+
+  @@index([isActive, priority])
+  @@map("map_providers")
+}
+
+model MapProviderUsage {
+  id          String   @id @default(cuid())
+  providerId  String
+  requestType String   // "map_load", "geocoding", "directions", etc.
+  cost        Decimal? @db.Decimal(10, 4) // Custo da requisição (se houver)
+  createdAt   DateTime @default(now())
+
+  // Relacionamentos
+  provider MapProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([createdAt])
+  @@map("map_provider_usage")
+}
+
