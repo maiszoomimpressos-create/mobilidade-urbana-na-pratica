@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 
+export const dynamic = "force-dynamic"
+
 export default async function PlanFeaturesPage() {
   const [plans, features, planFeatures] = await Promise.all([
     prisma.plan.findMany({
