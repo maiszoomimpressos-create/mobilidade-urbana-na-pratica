@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { MapProviderManager } from '@/lib/maps/MapProviderManager'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const provider = await MapProviderManager.getActiveProvider()
