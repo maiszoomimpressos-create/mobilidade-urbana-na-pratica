@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+// Build sem falhar no ESLint - deploy Vercel
 const nextConfig = {
   reactStrictMode: true,
   images: {
