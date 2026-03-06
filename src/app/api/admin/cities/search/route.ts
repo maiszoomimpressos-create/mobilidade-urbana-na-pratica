@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
     const where = {
       ...(state ? { state } : {}),
       OR: [
-        { name: { contains: query, mode: 'insensitive' } },
-        { state: { contains: query, mode: 'insensitive' } },
+        { name: { contains: query, mode: 'insensitive' as const } },
+        { state: { contains: query, mode: 'insensitive' as const } },
       ],
     }
 
