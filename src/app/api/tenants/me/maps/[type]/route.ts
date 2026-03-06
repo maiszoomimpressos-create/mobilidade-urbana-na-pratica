@@ -7,6 +7,7 @@ import { canManageMaps } from '@/lib/auth-can-manage-maps'
 export const dynamic = 'force-dynamic'
 
 const VALID_TYPES = ['GOOGLE_MAPS', 'MAPBOX', 'OPENSTREETMAP'] as const
+type MapProviderType = (typeof VALID_TYPES)[number]
 
 /**
  * GET /api/tenants/me/maps/[type] - Retorna a config do tenant para um tipo (gestor).
@@ -20,7 +21,7 @@ export async function GET(
     if (!allowed) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
     }
-    if (!VALID_TYPES.includes(params.type as any)) {
+    if (!VALID_TYPES.includes(params.type as MapProviderType)) {
       return NextResponse.json({ error: 'Tipo inválido' }, { status: 400 })
     }
 
@@ -39,7 +40,7 @@ export async function GET(
     }
 
     const globalProvider = await prisma.mapProvider.findUnique({
-      where: { type: params.type as any },
+      where: { type: params.type as MapProviderType },
     })
     if (!globalProvider) {
       return NextResponse.json({ error: 'Provedor não encontrado' }, { status: 404 })
@@ -49,7 +50,7 @@ export async function GET(
       where: {
         tenantId_mapProviderType: {
           tenantId,
-          mapProviderType: params.type as any,
+          mapProviderType: params.type as MapProviderType,
         },
       },
     })
@@ -87,7 +88,7 @@ export async function PATCH(
     if (!allowed) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
     }
-    if (!VALID_TYPES.includes(params.type as any)) {
+    if (!VALID_TYPES.includes(params.type as MapProviderType)) {
       return NextResponse.json({ error: 'Tipo inválido' }, { status: 400 })
     }
 
@@ -123,12 +124,12 @@ export async function PATCH(
       where: {
         tenantId_mapProviderType: {
           tenantId,
-          mapProviderType: params.type as any,
+          mapProviderType: params.type as MapProviderType,
         },
       },
       create: {
         tenantId,
-        mapProviderType: params.type as any,
+        mapProviderType: params.type as MapProviderType,
         apiKey: data.apiKey ?? null,
         isActive: data.isActive ?? true,
         priority: data.priority ?? 0,

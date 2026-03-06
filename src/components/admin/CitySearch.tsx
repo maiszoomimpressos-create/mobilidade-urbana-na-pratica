@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Search, MapPin, Loader2, Globe } from "lucide-react"
+import { Search, Loader2, Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface City {
@@ -64,9 +64,7 @@ export default function CitySearch({
   onDbResultsLoaded,
 }: CitySearchProps) {
   const [searchTerm, setSearchTerm] = useState("")
-  const [dbResults, setDbResults] = useState<City[]>([])
   const [googleResults, setGoogleResults] = useState<GooglePlaceSuggestion[]>([])
-  const [isLoading, setIsLoading] = useState(false)
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
@@ -86,7 +84,6 @@ export default function CitySearch({
   useEffect(() => {
     const query = searchTerm.trim()
     if (query.length < 1) {
-      setDbResults([])
       setGoogleResults([])
       setIsOpen(false)
       setIsLoadingGoogle(false)
@@ -110,7 +107,6 @@ export default function CitySearch({
       if (query.length < 1) return
 
       const searchDb = async () => {
-        setIsLoading(true)
         try {
           const params = new URLSearchParams({ q: query })
           if (state) params.set("state", state)
@@ -118,14 +114,10 @@ export default function CitySearch({
           if (!response.ok) throw new Error("Erro ao buscar")
           const data = await response.json()
           const list = Array.isArray(data) ? data : []
-          setDbResults(list)
           onDbResultsLoaded?.(list)
         } catch (error) {
           console.error("Erro ao buscar cidades:", error)
-          setDbResults([])
           onDbResultsLoaded?.([])
-        } finally {
-          setIsLoading(false)
         }
       }
 
@@ -170,7 +162,7 @@ export default function CitySearch({
     }, 280)
 
     return () => clearTimeout(timer)
-  }, [searchTerm, state, useGoogleGeocode])
+  }, [searchTerm, state, useGoogleGeocode, onDbResultsLoaded, onGeocodeError, onGoogleResultsLoaded])
 
   const hasResults = googleResults.length > 0
   const stillLoading = isLoadingGoogle

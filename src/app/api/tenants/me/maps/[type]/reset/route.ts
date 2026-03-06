@@ -7,6 +7,7 @@ import { canManageMaps } from '@/lib/auth-can-manage-maps'
 export const dynamic = 'force-dynamic'
 
 const VALID_TYPES = ['GOOGLE_MAPS', 'MAPBOX', 'OPENSTREETMAP'] as const
+type MapProviderType = (typeof VALID_TYPES)[number]
 
 /**
  * POST /api/tenants/me/maps/[type]/reset - Reseta contador de uso do tenant para o tipo.
@@ -20,7 +21,7 @@ export async function POST(
     if (!allowed) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
     }
-    if (!VALID_TYPES.includes(params.type as any)) {
+    if (!VALID_TYPES.includes(params.type as MapProviderType)) {
       return NextResponse.json({ error: 'Tipo inválido' }, { status: 400 })
     }
 
@@ -41,7 +42,7 @@ export async function POST(
     await prisma.tenantMapProviderConfig.updateMany({
       where: {
         tenantId,
-        mapProviderType: params.type as any,
+        mapProviderType: params.type as MapProviderType,
       },
       data: { currentUsage: 0, lastResetAt: new Date() },
     })

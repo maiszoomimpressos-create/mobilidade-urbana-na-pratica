@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -74,11 +74,7 @@ export default function MapasConfig({ variant = 'admin' }: MapasConfigProps) {
     summary: string
   } | null>(null)
 
-  useEffect(() => {
-    loadStats()
-  }, [])
-
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       setIsLoading(true)
       const url = variant === 'gestor' ? '/api/tenants/me/maps' : '/api/maps/stats'
@@ -91,7 +87,11 @@ export default function MapasConfig({ variant = 'admin' }: MapasConfigProps) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [variant])
+
+  useEffect(() => {
+    loadStats()
+  }, [loadStats])
 
   const openConfig = async (provider: MapProviderStats) => {
     try {

@@ -27,7 +27,7 @@ export class MapProviderManager {
       orderBy: { priority: 'asc' },
     })
 
-    let tenantConfigs: Map<string, { id: string; apiKey: string | null; isActive: boolean; priority: number; monthlyLimit: number; currentUsage: number; lastResetAt: Date | null }> = new Map()
+    const tenantConfigs: Map<string, { id: string; apiKey: string | null; isActive: boolean; priority: number; monthlyLimit: number; currentUsage: number; lastResetAt: Date | null }> = new Map()
     if (tenantId) {
       const configs = await prisma.tenantMapProviderConfig.findMany({
         where: { tenantId },
