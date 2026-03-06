@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { MapPin, Edit, Plus, Search, Loader2, MapPinned, KeyRound } from "lucide-react"
 import Link from "next/link"
-import CitySearch, { type GeoCity } from "@/components/admin/CitySearch"
+import CitySearch, { type City as CitySearchCity, type GeoCity } from "@/components/admin/CitySearch"
 import MapPreview from "@/components/admin/MapPreview"
 
 interface City {
@@ -195,7 +195,7 @@ export default function CidadesPage() {
     {} as Record<string, { state: State; cities: City[] }>
   )
 
-  const handleCitySelect = (city: City) => {
+  const handleCitySelect = (city: CitySearchCity) => {
     setPreviewGeo(null)
     router.push(`/admin/cidades/${city.id}/mapear`)
   }
