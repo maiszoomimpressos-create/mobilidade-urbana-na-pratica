@@ -2,15 +2,16 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { 
-  LayoutDashboard, 
-  Building2, 
-  Users, 
-  CreditCard, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Building2,
+  Users,
+  CreditCard,
+  Settings,
   BarChart3,
   MapPin,
-  FileText
+  FileText,
+  Database,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -51,6 +52,11 @@ const menuItems = [
     icon: FileText,
   },
   {
+    title: "Dados",
+    href: "/admin/dados",
+    icon: Database,
+  },
+  {
     title: "Configurações",
     href: "/admin/configuracoes",
     icon: Settings,
@@ -63,7 +69,7 @@ export default function AdminSidebar() {
   return (
     <aside className="w-64 bg-hero border-r border-primary/10 flex flex-col">
       {/* Logo */}
-      <div className="p-6 border-b border-primary/10">
+      <Link href="/" className="p-6 border-b border-primary/10 block hover:opacity-90 transition-opacity">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-lg bg-mobility-gradient flex items-center justify-center">
             <MapPin className="w-6 h-6 text-primary-foreground" />
@@ -75,7 +81,7 @@ export default function AdminSidebar() {
             <span className="text-xs text-hero-foreground/60">Admin Master</span>
           </div>
         </div>
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1">

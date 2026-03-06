@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Save, Trash2, Search } from "lucide-react"
+import { ArrowLeft, Save, Trash2, Search, MapPin, Loader2 } from "lucide-react"
 import CitySearch from "@/components/admin/CitySearch"
 import MapEditorWrapper from "@/components/admin/MapEditorWrapper"
 
@@ -25,6 +25,8 @@ export default function MapearCidadePage() {
   const [polygon, setPolygon] = useState<number[][]>([])
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
   const [mapZoom, setMapZoom] = useState(12)
+  const [loadingBoundary, setLoadingBoundary] = useState(false)
+  const [boundaryError, setBoundaryError] = useState<string | null>(null)
 
   // Carregar cidade do banco
   useEffect(() => {
@@ -137,6 +139,38 @@ export default function MapearCidadePage() {
   const handleClear = () => {
     if (confirm("Deseja limpar o polígono desenhado?")) {
       setPolygon([])
+      setBoundaryError(null)
+    }
+  }
+
+  const handleLoadIbgeBoundary = async () => {
+    if (!cityId) return
+    setLoadingBoundary(true)
+    setBoundaryError(null)
+    try {
+      const res = await fetch(`/api/admin/cities/${cityId}/boundary`)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const msg = data.error || "Não foi possível carregar o limite."
+        setBoundaryError(
+          msg +
+            (res.status === 502
+              ? " Se você já baixou a malha do IBGE (BR_Municipios_2024), rode no projeto: npm run ibge:build-boundaries"
+              : "")
+        )
+        return
+      }
+      if (data.polygon && Array.isArray(data.polygon) && data.polygon.length >= 3) {
+        setPolygon(data.polygon)
+        setBoundaryError(null)
+      } else {
+        setBoundaryError("Resposta sem polígono válido. Desenhe manualmente ou use a malha local (npm run ibge:build-boundaries).")
+      }
+    } catch (e) {
+      console.error("Erro ao carregar limite IBGE:", e)
+      setBoundaryError("Erro ao carregar limite. Verifique a conexão ou use a malha local (npm run ibge:build-boundaries).")
+    } finally {
+      setLoadingBoundary(false)
     }
   }
 
@@ -177,6 +211,7 @@ export default function MapearCidadePage() {
           <CitySearch
             onCitySelect={handleCitySelect}
             placeholder="Digite o nome da cidade..."
+            state={city?.state ?? undefined}
           />
         </CardContent>
       </Card>
@@ -236,6 +271,10 @@ export default function MapearCidadePage() {
                 <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
                 <p>Mínimo de 3 pontos para formar um polígono</p>
               </div>
+              <div className="flex items-start gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                <p>Use &quot;Carregar limite (IBGE)&quot; para preencher com o limite oficial do município</p>
+              </div>
             </CardContent>
           </Card>
 
@@ -264,6 +303,22 @@ export default function MapearCidadePage() {
 
           {/* Actions */}
           <div className="space-y-2">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleLoadIbgeBoundary}
+              disabled={loadingBoundary || !cityId}
+            >
+              {loadingBoundary ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <MapPin className="w-4 h-4 mr-2" />
+              )}
+              Carregar limite (IBGE)
+            </Button>
+            {boundaryError && (
+              <p className="text-sm text-destructive">{boundaryError}</p>
+            )}
             <Button
               variant="hero"
               className="w-full group"

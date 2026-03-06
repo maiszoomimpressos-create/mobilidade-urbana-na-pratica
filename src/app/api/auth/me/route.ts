@@ -33,6 +33,7 @@ export async function GET(_request: NextRequest) {
                 name: true,
                 slug: true,
                 logo: true,
+                mapUsageDashboardUrl: true,
               },
             },
             role: {

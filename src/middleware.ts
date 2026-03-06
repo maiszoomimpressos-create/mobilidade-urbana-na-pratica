@@ -4,12 +4,12 @@ import { NextResponse } from 'next/server'
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token
-    const isAuthPage = req.nextUrl.pathname.startsWith('/login') || 
-                      req.nextUrl.pathname.startsWith('/register')
+    const pathname = req.nextUrl.pathname
+    const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/register')
 
-    // Se está autenticado e tenta acessar login/register, redireciona para dashboard
+    // Se está autenticado e tenta acessar login/register, redireciona para a landing (página principal)
     if (token && isAuthPage) {
-      return NextResponse.redirect(new URL('/dashboard', req.url))
+      return NextResponse.redirect(new URL('/', req.url))
     }
 
     return NextResponse.next()
@@ -19,7 +19,7 @@ export default withAuth(
       authorized: ({ token, req }) => {
         const isAuthPage = req.nextUrl.pathname.startsWith('/login') || 
                           req.nextUrl.pathname.startsWith('/register')
-        const isPublicPage = req.nextUrl.pathname === '/'
+        const isPublicPage = req.nextUrl.pathname === '/' || req.nextUrl.pathname === '/baixar'
 
         // Páginas públicas e de auth são acessíveis sem token
         if (isAuthPage || isPublicPage) {

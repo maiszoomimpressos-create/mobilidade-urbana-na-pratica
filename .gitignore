@@ -51,3 +51,6 @@ next-env.d.ts
 # OS
 Thumbs.db
 
+# Dados pesados (ex.: malhas IBGE)
+/data/
+

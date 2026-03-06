@@ -66,6 +66,7 @@ export async function GET(
         name: true,
         state: true,
         country: true,
+        ibgeCode: true,
         latitude: true,
         longitude: true,
         coverageArea: true,

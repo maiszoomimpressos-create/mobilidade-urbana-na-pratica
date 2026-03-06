@@ -1,8 +1,9 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Play } from "lucide-react"
+import { ArrowRight, Play, Smartphone } from "lucide-react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 const HeroSection = () => {
   const router = useRouter()
@@ -14,8 +15,8 @@ const HeroSection = () => {
     }
   }
 
-  const goToPlanos = () => {
-    router.push('/planos')
+  const goToCards = () => {
+    router.push('/dashboard')
   }
 
   return (
@@ -60,15 +61,26 @@ const HeroSection = () => {
               variant="hero" 
               size="xl" 
               className="group"
-              onClick={goToPlanos}
+              asChild
             >
-              Ser Parceiro Mai Drive
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              <Link href="/baixar">
+                <Smartphone className="w-5 h-5" />
+                Baixar app (passageiro)
+              </Link>
             </Button>
             <Button 
               variant="heroOutline" 
               size="xl" 
               className="group"
+              onClick={goToCards}
+            >
+              Ser Parceiro Mai Drive
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="xl" 
+              className="group text-hero-foreground hover:bg-hero-foreground/10"
               onClick={scrollToHowItWorks}
             >
               <Play className="w-5 h-5" />

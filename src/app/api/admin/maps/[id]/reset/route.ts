@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { MapProviderManager } from '@/lib/maps/MapProviderManager'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { canManageMaps } from '@/lib/auth-can-manage-maps'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    const allowed = await canManageMaps()
+    if (!allowed) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
     }
 
     const providerId = params.id

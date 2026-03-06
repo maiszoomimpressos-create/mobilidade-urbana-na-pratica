@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { providerType, requestType = 'map_load', cost } = body
+    const { providerType, requestType = 'map_load', cost, tenantId } = body
 
     if (!providerType) {
       return NextResponse.json(
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    await MapProviderManager.recordUsage(providerType, requestType, cost)
+    await MapProviderManager.recordUsage(providerType, requestType, cost, tenantId ?? null)
 
     return NextResponse.json({ success: true })
   } catch (error) {

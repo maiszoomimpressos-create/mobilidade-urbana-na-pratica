@@ -98,10 +98,11 @@ export default function MapEditor({
           console.log("MapEditor: Carregando polígono existente", polygon.length)
           const latlngs = polygon.map(([lng, lat]) => [lat, lng] as [number, number])
           const existingPoly = L.polygon(latlngs, {
-            color: "#FFD700",
-            fillColor: "#FFD700",
-            fillOpacity: 0.3,
+            color: "#2d2d2d",
+            fillColor: "#e5e5e5",
+            fillOpacity: 0.25,
             weight: 2,
+            dashArray: "8, 8",
           })
           drawnItems.addLayer(existingPoly)
           map.fitBounds(existingPoly.getBounds())
@@ -127,6 +128,13 @@ export default function MapEditor({
             polygon: {
               allowIntersection: false,
               showArea: true,
+              shapeOptions: {
+                color: "#2d2d2d",
+                fillColor: "#e5e5e5",
+                fillOpacity: 0.25,
+                weight: 2,
+                dashArray: "8, 8",
+              },
             },
             polyline: false,
             rectangle: false,
@@ -218,10 +226,11 @@ export default function MapEditor({
         if (polygon.length > 0) {
           const latlngs = polygon.map(([lng, lat]) => [lat, lng] as [number, number])
           const poly = L.polygon(latlngs, {
-            color: "#FFD700",
-            fillColor: "#FFD700",
-            fillOpacity: 0.3,
+            color: "#2d2d2d",
+            fillColor: "#e5e5e5",
+            fillOpacity: 0.25,
             weight: 2,
+            dashArray: "8, 8",
           })
           drawnItemsRef.current.addLayer(poly)
           mapInstanceRef.current.fitBounds(poly.getBounds())

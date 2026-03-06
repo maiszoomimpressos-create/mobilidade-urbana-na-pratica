@@ -1,7 +1,8 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, Smartphone } from "lucide-react"
+import Link from "next/link"
 
 const CTASection = () => {
   return (
@@ -24,13 +25,16 @@ const CTASection = () => {
               <span className="text-gradient">mobilidade?</span>
             </h2>
             <p className="text-hero-foreground/70 text-lg max-w-xl mx-auto mb-8">
-              Junte-se a milhões de pessoas que já estão se movendo de forma mais inteligente, rápida e sustentável.
+              Baixe o app do passageiro e solicite suas corridas. É grátis.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button variant="hero" size="xl" className="group">
-                Começar Agora - É Grátis
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              <Button variant="hero" size="xl" className="group" asChild>
+                <Link href="/baixar">
+                  <Smartphone className="w-5 h-5" />
+                  Baixar app do passageiro
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </Link>
               </Button>
             </div>
 

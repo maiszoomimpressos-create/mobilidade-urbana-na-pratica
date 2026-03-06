@@ -18,6 +18,7 @@ interface MapProviderHook {
 export function useMapProvider(): MapProviderHook {
   const [provider, setProvider] = useState<MapProviderType | null>(null)
   const [apiKey, setApiKey] = useState<string | undefined>(undefined)
+  const [tenantId, setTenantId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -27,16 +28,17 @@ export function useMapProvider(): MapProviderHook {
         setIsLoading(true)
         const response = await fetch('/api/maps/provider')
         if (!response.ok) throw new Error('Erro ao carregar provedor')
-        
+
         const data = await response.json()
         setProvider(data.type)
         setApiKey(data.apiKey)
+        setTenantId(data.tenantId ?? null)
         setError(null)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erro desconhecido')
-        // Fallback para OpenStreetMap (gratuito, sem API key)
         setProvider('OPENSTREETMAP')
         setApiKey(undefined)
+        setTenantId(null)
       } finally {
         setIsLoading(false)
       }
@@ -47,12 +49,16 @@ export function useMapProvider(): MapProviderHook {
 
   const recordUsage = async (requestType: string = 'map_load') => {
     if (!provider) return
-    
+
     try {
       await fetch('/api/maps/usage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerType: provider, requestType }),
+        body: JSON.stringify({
+          providerType: provider,
+          requestType,
+          tenantId: tenantId ?? undefined,
+        }),
       })
     } catch (err) {
       console.error('Erro ao registrar uso do mapa:', err)

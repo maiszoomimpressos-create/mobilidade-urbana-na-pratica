@@ -77,13 +77,15 @@ model VerificationToken {
 // ============================================
 
 model Tenant {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  logo        String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  name                  String
+  slug                  String   @unique
+  logo                  String?
+  /// Link para o dono da conta (white-label) controlar/visualizar uso de chamadas de mapa (ex: Google Cloud Console).
+  mapUsageDashboardUrl   String?  @db.Text
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   // Relacionamentos
   tenantUsers TenantUser[]
@@ -96,6 +98,7 @@ model Tenant {
   customLimits   TenantCustomLimit[]
   vehicles    Vehicle[]
   tenantCities TenantCity[]
+  tenantMapProviderConfigs TenantMapProviderConfig[]
 
   @@index([slug])
   @@index([isActive])
@@ -394,6 +397,13 @@ model City {
   name      String
   state     String
   country   String   @default("BR")
+  /// Código IBGE do município (7 dígitos) - usado para buscar limite oficial na API de Malhas
+  ibgeCode  String?  @unique
+  /// Região geográfica IBGE (para filtro)
+  regiaoIntermediariaId   Int?    // id da região intermediária
+  regiaoIntermediariaNome String? // ex.: "Curitiba"
+  regiaoImediataId        Int?    // id da região imediata
+  regiaoImediataNome     String? // ex.: "Curitiba"
   latitude  Decimal  @db.Decimal(10, 8)
   longitude Decimal  @db.Decimal(11, 8)
   isActive  Boolean  @default(true)
@@ -408,6 +418,7 @@ model City {
 
   @@unique([name, state, country])
   @@index([isActive])
+  @@index([state])
   @@map("cities")
 }
 
@@ -592,6 +603,8 @@ model MapProvider {
   type        MapProviderType @unique
   name        String
   apiKey      String?        @db.Text
+  /// Senha/credenciais do site onde obter as chaves (ex.: Google Cloud, Mapbox). Proteção adicional será implementada depois.
+  siteCredentials String?    @db.Text
   isActive    Boolean        @default(true)
   priority    Int            @default(0) // Ordem de prioridade (0 = primeiro)
   monthlyLimit Int           @default(0) // Limite mensal de requisições (0 = ilimitado)
@@ -620,5 +633,26 @@ model MapProviderUsage {
   @@index([providerId])
   @@index([createdAt])
   @@map("map_provider_usage")
+}
+
+/// Configuração de provedor de mapa por tenant (gestor/dono usa sua própria API).
+model TenantMapProviderConfig {
+  id             String         @id @default(cuid())
+  tenantId       String
+  mapProviderType MapProviderType
+  apiKey         String?        @db.Text
+  isActive       Boolean        @default(true)
+  priority       Int            @default(0)
+  monthlyLimit   Int            @default(0)
+  currentUsage   Int            @default(0)
+  lastResetAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, mapProviderType])
+  @@index([tenantId])
+  @@map("tenant_map_provider_configs")
 }
 

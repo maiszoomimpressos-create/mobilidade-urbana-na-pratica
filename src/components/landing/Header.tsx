@@ -2,23 +2,47 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { MapPin, Menu, X } from "lucide-react"
-import { useState } from "react"
+import { MapPin, Menu, X, LayoutDashboard, KeyRound, LogOut } from "lucide-react"
+import { useState, useEffect } from "react"
+import { useSession, signOut } from "next-auth/react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 const Header = () => {
+  const { data: session, status } = useSession()
+  const isLoggedIn = status === "authenticated"
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isGestor, setIsGestor] = useState(false)
 
+  const masterEmail = process.env.NEXT_PUBLIC_MASTER_ADMIN_EMAIL ?? "maiszoomimpressos@gmail.com"
+  const isMasterAdmin = session?.user?.email === masterEmail
+
+  useEffect(() => {
+    if (!isLoggedIn) return
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const roles = data?.user?.tenantUsers?.map((tu: { role: { slug: string } }) => tu.role?.slug) ?? []
+        setIsGestor(roles.includes("manager"))
+      })
+      .catch(() => {})
+  }, [isLoggedIn])
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-hero/80 backdrop-blur-lg border-b border-primary/10">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
           <div className="w-10 h-10 rounded-lg bg-mobility-gradient flex items-center justify-center">
             <MapPin className="w-6 h-6 text-primary-foreground" />
           </div>
           <span className="text-xl font-display font-bold text-hero-foreground">
             Mai Drive
           </span>
-        </div>
+        </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-8">
@@ -34,15 +58,68 @@ const Header = () => {
         </nav>
 
         <div className="hidden md:flex items-center gap-4">
-          <Button
-            asChild
-            variant="ghost"
-            className="text-hero-foreground hover:text-primary"
-          >
-            <Link href="/login">Entrar</Link>
-          </Button>
-          <Button variant="hero" size="lg">
-            Começar Agora
+          {isLoggedIn ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-hero-foreground hover:text-primary"
+                  aria-label="Abrir menu"
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[12rem]">
+                {isMasterAdmin && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin" className="cursor-pointer gap-2 flex items-center">
+                        <LayoutDashboard className="h-4 w-4" />
+                        Painel administrativo
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                {(isGestor || isMasterAdmin) && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href="/gestor" className="cursor-pointer gap-2 flex items-center">
+                        <KeyRound className="h-4 w-4" />
+                        Painel do gestor
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard" className="cursor-pointer gap-2 flex items-center">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Ser Parceiro / Minha Marca
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="cursor-pointer gap-2 text-foreground"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button
+              asChild
+              variant="ghost"
+              className="text-hero-foreground hover:text-primary"
+            >
+              <Link href="/login">Entrar</Link>
+            </Button>
+          )}
+          <Button variant="hero" size="lg" asChild>
+            <Link href="/baixar">Baixar app</Link>
           </Button>
         </div>
 
@@ -68,9 +145,42 @@ const Header = () => {
             <a href="#pricing" className="text-hero-foreground/80 hover:text-primary transition-colors font-medium py-2">
               Preços
             </a>
-            <Button variant="hero" size="lg" className="w-full mt-2">
-              Começar Agora
+            <Button variant="hero" size="lg" className="w-full mt-2" asChild>
+              <Link href="/baixar">Baixar app</Link>
             </Button>
+            {isLoggedIn && (
+              <>
+                <div className="border-t border-primary/10 my-2" />
+                <Link href="/dashboard" className="text-hero-foreground/80 hover:text-primary transition-colors font-medium py-2 flex items-center gap-2">
+                  <LayoutDashboard className="h-4 w-4" />
+                  Ser Parceiro / Minha Marca
+                </Link>
+                {isMasterAdmin && (
+                  <Link href="/admin" className="text-hero-foreground/80 hover:text-primary transition-colors font-medium py-2 flex items-center gap-2">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Painel administrativo
+                  </Link>
+                )}
+                {(isGestor || isMasterAdmin) && (
+                  <Link href="/gestor" className="text-hero-foreground/80 hover:text-primary transition-colors font-medium py-2 flex items-center gap-2">
+                    <KeyRound className="h-4 w-4" />
+                    Painel do gestor
+                  </Link>
+                )}
+                <button
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="text-hero-foreground/80 hover:text-primary transition-colors font-medium py-2 flex items-center gap-2 text-left w-full"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sair
+                </button>
+              </>
+            )}
+            {!isLoggedIn && (
+              <Link href="/login" className="text-hero-foreground/80 hover:text-primary transition-colors font-medium py-2">
+                Entrar
+              </Link>
+            )}
           </nav>
         </div>
       )}

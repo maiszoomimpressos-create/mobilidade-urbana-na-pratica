@@ -15,29 +15,22 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams
     const query = searchParams.get('q')?.trim()
+    const state = searchParams.get('state')?.trim().toUpperCase()
 
-    if (!query || query.length < 2) {
+    if (!query || query.length < 1) {
       return NextResponse.json([])
     }
 
-    // Buscar cidades por nome ou estado
+    const where = {
+      ...(state ? { state } : {}),
+      OR: [
+        { name: { contains: query, mode: 'insensitive' } },
+        { state: { contains: query, mode: 'insensitive' } },
+      ],
+    }
+
     const cities = await prisma.city.findMany({
-      where: {
-        OR: [
-          {
-            name: {
-              contains: query,
-              mode: 'insensitive',
-            },
-          },
-          {
-            state: {
-              contains: query,
-              mode: 'insensitive',
-            },
-          },
-        ],
-      },
+      where,
       take: 10,
       orderBy: [
         { name: 'asc' },

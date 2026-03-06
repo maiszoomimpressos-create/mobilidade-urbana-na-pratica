@@ -21,6 +21,16 @@ O deploy falha sem estas variáveis. **Adicione-as no painel da Vercel:**
 
 ---
 
+## E-mail master (admin total)
+
+| Nome | Valor |
+|------|-------|
+| `NEXT_PUBLIC_MASTER_ADMIN_EMAIL` | E-mail que terá acesso de administrador master (ex: `seu-email@exemplo.com`) |
+
+Se não definir, o padrão é `maiszoomimpressos@gmail.com`.
+
+---
+
 ## Variáveis opcionais (Supabase Storage/Realtime)
 
 | Nome | Valor |

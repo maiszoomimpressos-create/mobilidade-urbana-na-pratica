@@ -4,18 +4,74 @@ import { useAuth } from '@/hooks/useAuth'
 import { useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
-import { useEffect } from 'react'
-import { MapPin, Building2, ArrowRight, Check } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { useEffect, useState } from 'react'
+import { MapPin, Building2, ArrowRight, Check, Menu, LayoutDashboard, LogOut, Link2, Save, KeyRound, Smartphone } from 'lucide-react'
+import Link from 'next/link'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+
+type TenantWithLink = {
+  id: string
+  name: string
+  slug: string
+  logo: string | null
+  mapUsageDashboardUrl: string | null
+}
 
 export default function DashboardPage() {
-  const { user, isAuthenticated, isLoading } = useAuth()
+  const { user, isAuthenticated, isLoading, isMasterAdmin } = useAuth()
   const router = useRouter()
+  const [tenants, setTenants] = useState<TenantWithLink[]>([])
+  const [usageLink, setUsageLink] = useState('')
+  const [usageLinkSaving, setUsageLinkSaving] = useState(false)
+  const [isGestor, setIsGestor] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/login')
     }
   }, [isAuthenticated, isLoading, router])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    fetch('/api/auth/me')
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        const list = data?.user?.tenantUsers?.map((tu: { tenant: TenantWithLink }) => tu.tenant) ?? []
+        setTenants(list)
+        if (list.length > 0 && list[0].mapUsageDashboardUrl) {
+          setUsageLink(list[0].mapUsageDashboardUrl)
+        }
+        const roles = data?.user?.tenantUsers?.map((tu: { role: { slug: string } }) => tu.role?.slug) ?? []
+        setIsGestor(roles.includes('manager'))
+      })
+      .catch(() => {})
+  }, [isAuthenticated])
+
+  const saveUsageLink = async () => {
+    if (tenants.length === 0) return
+    setUsageLinkSaving(true)
+    try {
+      const res = await fetch(`/api/tenants/${tenants[0].id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mapUsageDashboardUrl: usageLink.trim() || null }),
+      })
+      if (!res.ok) throw new Error('Erro ao salvar')
+    } catch {
+      alert('Erro ao salvar o link.')
+    } finally {
+      setUsageLinkSaving(false)
+    }
+  }
 
   const handleLogout = async () => {
     await signOut({ redirect: true, callbackUrl: '/login' })
@@ -38,21 +94,63 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="bg-hero/80 backdrop-blur-lg border-b border-primary/10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
             <div className="w-10 h-10 rounded-lg bg-mobility-gradient flex items-center justify-center">
               <MapPin className="w-6 h-6 text-primary-foreground" />
             </div>
             <span className="text-xl font-display font-bold text-hero-foreground">
               Mai Drive
             </span>
-          </div>
+          </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm text-hero-foreground/80">
               Olá, {user?.name || user?.email}
             </span>
-            <Button variant="ghost" className="text-hero-foreground hover:text-primary" onClick={handleLogout}>
-              Sair
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-hero-foreground hover:text-primary"
+                  aria-label="Abrir menu"
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[12rem]">
+                {isMasterAdmin && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => router.push('/admin')}
+                      className="cursor-pointer gap-2"
+                    >
+                      <LayoutDashboard className="h-4 w-4" />
+                      Painel administrativo
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                {(isGestor || isMasterAdmin) && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => router.push('/gestor')}
+                      className="cursor-pointer gap-2"
+                    >
+                      <KeyRound className="h-4 w-4" />
+                      Painel do gestor (config. mapas)
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="cursor-pointer gap-2 text-foreground"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
@@ -67,6 +165,13 @@ export default function DashboardPage() {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Selecione como você deseja operar sua plataforma de mobilidade urbana
           </p>
+
+          <Button variant="hero" size="lg" className="mt-6" asChild>
+            <Link href="/baixar">
+              <Smartphone className="w-4 h-4" />
+              Baixar app
+            </Link>
+          </Button>
         </div>
 
         {/* Cards */}
@@ -160,6 +265,42 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Link para controle de uso (white-label: dono da conta) */}
+        {tenants.length > 0 && (
+          <Card className="max-w-5xl mx-auto mt-8 border-primary/20 bg-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Link2 className="h-5 w-5 text-primary" />
+                Link para controle de uso das chamadas de mapa
+              </CardTitle>
+              <CardDescription>
+                Se você opera com sua própria marca (white-label), adicione aqui o link onde você controla ou visualiza o uso das chamadas de mapa (ex.: painel do Google Cloud, Mapbox ou outro).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
+                <Label htmlFor="usageLink" className="sr-only">URL do painel de uso</Label>
+                <Input
+                  id="usageLink"
+                  type="url"
+                  placeholder="https://console.cloud.google.com/..."
+                  value={usageLink}
+                  onChange={(e) => setUsageLink(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <Button
+                onClick={saveUsageLink}
+                disabled={usageLinkSaving}
+                className="shrink-0"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {usageLinkSaving ? 'Salvando...' : 'Salvar'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   )
