@@ -43,7 +43,7 @@ async function main() {
   })
 
   for (const { email, password } of USERS_TO_CREATE) {
-    const { data, error } = await supabase.auth.admin.createUser({
+    const { error } = await supabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
