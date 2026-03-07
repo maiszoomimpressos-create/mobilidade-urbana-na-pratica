@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
 const PUBLIC_PATHS = ['/', '/baixar']
-const AUTH_PATHS = ['/login', '/register']
+const AUTH_PATHS = ['/login', '/register', '/esqueci-senha', '/redefinir-senha']
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/baixar')
