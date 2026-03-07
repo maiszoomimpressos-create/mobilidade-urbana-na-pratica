@@ -1,17 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 export default function EsqueciSenhaPage() {
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [linkExpired, setLinkExpired] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('expired') === '1') setLinkExpired(true)
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -50,6 +57,14 @@ export default function EsqueciSenhaPage() {
             Informe seu email e enviaremos um link para redefinir sua senha.
           </p>
         </div>
+
+        {linkExpired && (
+          <div className="rounded-md bg-amber-50 p-4">
+            <p className="text-sm text-amber-800">
+              O link de redefinição expirou ou já foi usado. Solicite um novo link abaixo.
+            </p>
+          </div>
+        )}
 
         {success ? (
           <div className="rounded-md bg-green-50 p-4">

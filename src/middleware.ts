@@ -23,6 +23,10 @@ export async function middleware(req: NextRequest) {
 
   // Páginas de auth (login, register, etc.)
   if (isAuthPage(pathname)) {
+    // Nunca redirecionar quem está em /redefinir-senha (link do email de recuperação)
+    if (pathname.startsWith('/redefinir-senha')) {
+      return response
+    }
     if (session?.user) {
       return NextResponse.redirect(new URL('/', req.url))
     }
