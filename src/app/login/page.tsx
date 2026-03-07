@@ -33,7 +33,7 @@ export default function LoginPage() {
       }
 
       if (data.session) {
-        router.push('/')
+        router.push('/dashboard')
         router.refresh()
       }
     } catch {
