@@ -16,9 +16,15 @@ export async function sendPasswordResetEmail(
   resetLink: string
 ): Promise<SendPasswordResetResult> {
   const apiKey = process.env.RESEND_API_KEY
+  const isProduction = process.env.NODE_ENV === 'production'
 
   if (!apiKey) {
-    // Dev: não quebra o fluxo; log para testar
+    // Em produção, sem API key o email não pode ser enviado
+    if (isProduction) {
+      console.error('[email] RESEND_API_KEY não definida em produção. Configure na Vercel.')
+      return { ok: false, error: 'Envio de email não configurado' }
+    }
+    // Dev: log para testar sem quebrar o fluxo
     console.info('[email] RESEND_API_KEY não definida. Link de redefinição:', resetLink)
     return { ok: true }
   }

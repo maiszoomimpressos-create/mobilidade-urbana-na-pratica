@@ -47,10 +47,11 @@ export async function POST(request: NextRequest) {
 
     if (!result.ok) {
       console.error('[forgot-password] Falha ao enviar email:', result.error)
-      return NextResponse.json(
-        { message: 'Não foi possível enviar o email. Tente novamente mais tarde.' },
-        { status: 503 }
-      )
+      const message =
+        result.error === 'Envio de email não configurado'
+          ? 'Envio de email não está configurado. Entre em contato com o suporte.'
+          : 'Não foi possível enviar o email. Tente novamente mais tarde.'
+      return NextResponse.json({ error: message }, { status: 503 })
     }
 
     return NextResponse.json({ message }, { status: 200 })

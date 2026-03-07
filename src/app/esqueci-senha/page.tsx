@@ -28,7 +28,7 @@ export default function EsqueciSenhaPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error ?? 'Erro ao enviar. Tente novamente.')
+        setError(data.error ?? data.message ?? 'Erro ao enviar. Tente novamente.')
         return
       }
 
