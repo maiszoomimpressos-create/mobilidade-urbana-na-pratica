@@ -1,17 +1,20 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
+/**
+ * Supabase redireciona para esta página com tokens no hash: #access_token=...&refresh_token=...&type=recovery
+ */
 function RedefinirSenhaForm() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const token = searchParams.get('token') ?? ''
-
+  const [ready, setReady] = useState(false)
+  const [hashError, setHashError] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
@@ -19,8 +22,37 @@ function RedefinirSenhaForm() {
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    if (!token) setError('Link inválido. Solicite um novo link de redefinição.')
-  }, [token])
+    const hash = typeof window !== 'undefined' ? window.location.hash : ''
+    if (!hash) {
+      setHashError('Link inválido ou expirado. Solicite um novo link de redefinição.')
+      setReady(true)
+      return
+    }
+
+    const params = new URLSearchParams(hash.replace(/^#/, ''))
+    const accessToken = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+    const type = params.get('type')
+
+    if (type !== 'recovery' || !accessToken || !refreshToken) {
+      setHashError('Link inválido ou expirado. Solicite um novo link de redefinição.')
+      setReady(true)
+      return
+    }
+
+    const supabase = createClient()
+    supabase.auth
+      .setSession({ access_token: accessToken, refresh_token: refreshToken })
+      .then(() => {
+        setReady(true)
+        // Limpar o hash da URL por segurança
+        window.history.replaceState(null, '', window.location.pathname)
+      })
+      .catch(() => {
+        setHashError('Não foi possível validar o link. Solicite um novo.')
+        setReady(true)
+      })
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,35 +71,38 @@ function RedefinirSenhaForm() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password }),
-      })
+      const supabase = createClient()
+      const { error: updateError } = await supabase.auth.updateUser({ password })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error ?? 'Erro ao redefinir senha. Tente novamente.')
+      if (updateError) {
+        setError(updateError.message)
         return
       }
 
       setSuccess(true)
       setTimeout(() => router.push('/login'), 2000)
     } catch {
-      setError('Erro de conexão. Tente novamente.')
+      setError('Erro ao redefinir senha. Tente novamente.')
     } finally {
       setIsLoading(false)
     }
   }
 
-  if (!token) {
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <p className="text-gray-600">Validando link...</p>
+      </div>
+    )
+  }
+
+  if (hashError) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
         <div className="w-full max-w-md space-y-6">
           <h2 className="text-center text-2xl font-bold text-gray-900">Link inválido</h2>
           <div className="rounded-md bg-red-50 p-4">
-            <p className="text-sm text-red-800">{error}</p>
+            <p className="text-sm text-red-800">{hashError}</p>
           </div>
           <p className="text-center text-sm">
             <Link href="/esqueci-senha" className="font-medium text-primary hover:underline">

@@ -1,5 +1,4 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSessionForServer } from '@/lib/supabase-auth'
 import { prisma } from '@/lib/prisma'
 
 const MASTER_EMAIL = process.env.NEXT_PUBLIC_MASTER_ADMIN_EMAIL ?? 'maiszoomimpressos@gmail.com'
@@ -9,7 +8,7 @@ const MASTER_EMAIL = process.env.NEXT_PUBLIC_MASTER_ADMIN_EMAIL ?? 'maiszoomimpr
  * (admin master ou gestor = role slug 'manager').
  */
 export async function canManageMaps(): Promise<boolean> {
-  const session = await getServerSession(authOptions)
+  const session = await getSessionForServer()
   if (!session?.user?.email) return false
 
   const email = session.user.email

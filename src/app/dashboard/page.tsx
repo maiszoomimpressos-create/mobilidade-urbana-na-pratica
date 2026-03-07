@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/hooks/useAuth'
 import { useRouter } from 'next/navigation'
-import { signOut } from 'next-auth/react'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -74,7 +74,10 @@ export default function DashboardPage() {
   }
 
   const handleLogout = async () => {
-    await signOut({ redirect: true, callbackUrl: '/login' })
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
   }
 
   if (isLoading) {

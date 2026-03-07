@@ -1,6 +1,5 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import { getToken } from 'next-auth/jwt'
+import { NextResponse, type NextRequest } from 'next/server'
+import { updateSession } from '@/lib/supabase/middleware'
 
 const PUBLIC_PATHS = ['/', '/baixar']
 const AUTH_PATHS = ['/login', '/register', '/esqueci-senha', '/redefinir-senha']
@@ -15,53 +14,31 @@ function isAuthPage(pathname: string) {
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
+  const { response, session } = await updateSession(req)
 
   // Páginas públicas: sempre permitir
   if (isPublic(pathname)) {
-    return NextResponse.next()
+    return response
   }
 
-  // Páginas de auth (login/register)
+  // Páginas de auth (login, register, etc.)
   if (isAuthPage(pathname)) {
-    try {
-      const token = await getToken({
-        req,
-        secret: process.env.NEXTAUTH_SECRET,
-      })
-      if (token) {
-        return NextResponse.redirect(new URL('/', req.url))
-      }
-    } catch {
-      // Secret não configurado: deixa acessar login
+    if (session?.user) {
+      return NextResponse.redirect(new URL('/', req.url))
     }
-    return NextResponse.next()
+    return response
   }
 
-  // Outras páginas: verificar token
-  try {
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-    })
-    if (!token) {
-      return NextResponse.redirect(new URL('/login', req.url))
-    }
-    return NextResponse.next()
-  } catch {
+  // Rotas protegidas: exige sessão Supabase
+  if (!session?.user) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
+
+  return response
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 }
-

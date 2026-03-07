@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,28 +34,32 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const supabase = createClient()
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: { full_name: name.trim() || undefined },
         },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-        }),
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error || 'Erro ao criar conta')
+      if (signUpError) {
+        if (signUpError.message.includes('already registered')) {
+          setError('Este email já está cadastrado. Faça login.')
+        } else {
+          setError(signUpError.message)
+        }
         return
       }
 
-      // Redirecionar para login após registro bem-sucedido
+      if (data.user && !data.session) {
+        setError('Conta criada. Verifique seu email para confirmar (se habilitado) e faça login.')
+        setTimeout(() => router.push('/login'), 2000)
+        return
+      }
+
       router.push('/login?registered=true')
-    } catch (err) {
+    } catch {
       setError('Erro ao criar conta. Tente novamente.')
     } finally {
       setIsLoading(false)
@@ -69,12 +75,12 @@ export default function RegisterPage() {
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Ou{' '}
-            <a
+            <Link
               href="/login"
               className="font-medium text-primary hover:text-primary/80"
             >
               faça login na sua conta
-            </a>
+            </Link>
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -158,4 +164,3 @@ export default function RegisterPage() {
     </div>
   )
 }
-

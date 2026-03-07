@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSessionForServer } from '@/lib/supabase-auth'
 import { existsSync } from 'fs'
 import path from 'path'
 
@@ -17,7 +16,7 @@ function fileExists(relPath: string): boolean {
  */
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getSessionForServer()
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }

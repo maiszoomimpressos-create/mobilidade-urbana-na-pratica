@@ -4,7 +4,9 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { MapPin, Menu, X, LayoutDashboard, KeyRound, LogOut } from "lucide-react"
 import { useState, useEffect } from "react"
-import { useSession, signOut } from "next-auth/react"
+import { useAuth } from "@/hooks/useAuth"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,13 +16,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const Header = () => {
-  const { data: session, status } = useSession()
-  const isLoggedIn = status === "authenticated"
+  const { isAuthenticated: isLoggedIn, isMasterAdmin } = useAuth()
+  const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isGestor, setIsGestor] = useState(false)
-
-  const masterEmail = process.env.NEXT_PUBLIC_MASTER_ADMIN_EMAIL ?? "maiszoomimpressos@gmail.com"
-  const isMasterAdmin = session?.user?.email === masterEmail
 
   useEffect(() => {
     if (!isLoggedIn) return
@@ -101,7 +100,12 @@ const Header = () => {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => signOut({ callbackUrl: "/" })}
+                  onClick={async () => {
+                    const supabase = createClient()
+                    await supabase.auth.signOut()
+                    router.push("/")
+                    router.refresh()
+                  }}
                   className="cursor-pointer gap-2 text-foreground"
                 >
                   <LogOut className="h-4 w-4" />
@@ -168,7 +172,12 @@ const Header = () => {
                   </Link>
                 )}
                 <button
-                  onClick={() => signOut({ callbackUrl: "/" })}
+                  onClick={async () => {
+                    const supabase = createClient()
+                    await supabase.auth.signOut()
+                    router.push("/")
+                    router.refresh()
+                  }}
                   className="text-hero-foreground/80 hover:text-primary transition-colors font-medium py-2 flex items-center gap-2 text-left w-full"
                 >
                   <LogOut className="h-4 w-4" />

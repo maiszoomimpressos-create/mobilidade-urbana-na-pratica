@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import AdminSidebar from "@/components/admin/AdminSidebar"
-import { signOut } from "next-auth/react"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { LogOut } from "lucide-react"
 
@@ -23,7 +23,10 @@ export default function AdminLayoutClient({
   }, [isAuthenticated, isLoading, router])
 
   const handleLogout = async () => {
-    await signOut({ redirect: true, callbackUrl: '/login' })
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
   }
 
   if (isLoading) {

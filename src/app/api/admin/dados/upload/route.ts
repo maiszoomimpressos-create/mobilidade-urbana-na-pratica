@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSessionForServer } from '@/lib/supabase-auth'
 import { mkdir, writeFile } from 'fs/promises'
 import path from 'path'
 import { existsSync } from 'fs'
@@ -27,7 +26,7 @@ function getTargetFilename(target: string): string | null {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getSessionForServer()
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }

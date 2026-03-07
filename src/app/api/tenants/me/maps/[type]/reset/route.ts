@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSessionForServer } from '@/lib/supabase-auth'
 import { prisma } from '@/lib/prisma'
 import { canManageMaps } from '@/lib/auth-can-manage-maps'
 
@@ -25,7 +24,7 @@ export async function POST(
       return NextResponse.json({ error: 'Tipo inválido' }, { status: 400 })
     }
 
-    const session = await getServerSession(authOptions)
+    const session = await getSessionForServer()
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }

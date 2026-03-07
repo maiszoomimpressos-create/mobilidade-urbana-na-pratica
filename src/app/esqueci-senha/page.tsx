@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,22 +20,20 @@ export default function EsqueciSenhaPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+      const supabase = createClient()
+      const origin = typeof window !== 'undefined' ? window.location.origin : ''
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${origin}/redefinir-senha`,
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error ?? data.message ?? 'Erro ao enviar. Tente novamente.')
+      if (resetError) {
+        setError(resetError.message)
         return
       }
 
       setSuccess(true)
     } catch {
-      setError('Erro de conexão. Tente novamente.')
+      setError('Erro ao enviar. Tente novamente.')
     } finally {
       setIsLoading(false)
     }

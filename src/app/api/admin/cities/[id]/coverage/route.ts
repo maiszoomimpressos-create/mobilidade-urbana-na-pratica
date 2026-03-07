@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSessionForServer } from '@/lib/supabase-auth'
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getSessionForServer()
     
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
@@ -51,7 +50,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getSessionForServer()
     
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })

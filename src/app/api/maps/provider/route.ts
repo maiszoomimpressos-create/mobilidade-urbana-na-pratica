@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSessionForServer } from '@/lib/supabase-auth'
 import { prisma } from '@/lib/prisma'
 import { MapProviderManager } from '@/lib/maps/MapProviderManager'
 
@@ -9,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   try {
     let tenantId: string | null = null
-    const session = await getServerSession(authOptions)
+    const session = await getSessionForServer()
     if (session?.user?.email) {
       const user = await prisma.user.findUnique({
         where: { email: session.user.email },

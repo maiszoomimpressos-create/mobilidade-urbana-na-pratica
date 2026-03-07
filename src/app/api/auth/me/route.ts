@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getSessionForServer } from '@/lib/supabase-auth'
 
 export const dynamic = 'force-dynamic'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 
 export async function GET(_request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getSessionForServer()
 
     if (!session?.user?.email) {
       return NextResponse.json(
@@ -16,6 +14,7 @@ export async function GET(_request: NextRequest) {
       )
     }
 
+    const { prisma } = await import('@/lib/prisma')
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       select: {
@@ -64,4 +63,3 @@ export async function GET(_request: NextRequest) {
     )
   }
 }
-

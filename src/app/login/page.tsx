@@ -1,26 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { signIn } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 export default function LoginPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-
-  useEffect(() => {
-    const err = searchParams.get('error')
-    if (err === 'Configuration') {
-      setError('Serviço em configuração. Verifique as variáveis de ambiente (NEXTAUTH_SECRET, NEXTAUTH_URL) na Vercel.')
-    }
-  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,20 +21,22 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const result = await signIn('credentials', {
-        email,
+      const supabase = createClient()
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
         password,
-        redirect: false,
       })
 
-      if (result?.error) {
+      if (signInError) {
         setError('Email ou senha inválidos')
         return
       }
 
-      router.push('/')
-      router.refresh()
-    } catch (err) {
+      if (data.session) {
+        router.push('/')
+        router.refresh()
+      }
+    } catch {
       setError('Erro ao fazer login. Tente novamente.')
     } finally {
       setIsLoading(false)
@@ -57,12 +52,12 @@ export default function LoginPage() {
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Ou{' '}
-            <a
+            <Link
               href="/register"
               className="font-medium text-primary hover:text-primary/80"
             >
               crie uma nova conta
-            </a>
+            </Link>
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -87,15 +82,7 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Senha</Label>
-                <a
-                  href="/esqueci-senha"
-                  className="text-sm font-medium text-primary hover:text-primary/80"
-                >
-                  Esqueci a senha
-                </a>
-              </div>
+              <Label htmlFor="password">Senha</Label>
               <Input
                 id="password"
                 name="password"
@@ -110,7 +97,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Button
               type="submit"
               className="w-full"
@@ -118,10 +105,17 @@ export default function LoginPage() {
             >
               {isLoading ? 'Entrando...' : 'Entrar'}
             </Button>
+            <p className="text-center text-sm text-gray-600">
+              <Link
+                href="/esqueci-senha"
+                className="font-medium text-primary hover:text-primary/80"
+              >
+                Esqueci a senha
+              </Link>
+            </p>
           </div>
         </form>
       </div>
     </div>
   )
 }
-

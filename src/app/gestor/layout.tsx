@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { MapPin, LogOut, ArrowLeft } from 'lucide-react'
-import { signOut } from 'next-auth/react'
+import { createClient } from '@/lib/supabase/client'
 
 const MASTER_EMAIL = process.env.NEXT_PUBLIC_MASTER_ADMIN_EMAIL ?? 'maiszoomimpressos@gmail.com'
 
@@ -47,7 +47,10 @@ export default function GestorLayout({
   }, [isGestor, router])
 
   const handleLogout = async () => {
-    await signOut({ redirect: true, callbackUrl: '/login' })
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
   }
 
   if (isLoading || isGestor === null) {

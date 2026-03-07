@@ -3,8 +3,7 @@ import { readFile } from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path'
 import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSessionForServer } from '@/lib/supabase-auth'
 import { fetchRegiaoFromMunicipio } from '@/lib/ibge'
 
 const IBGE_BASE = 'https://servicodados.ibge.gov.br/api'
@@ -92,7 +91,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getSessionForServer()
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }

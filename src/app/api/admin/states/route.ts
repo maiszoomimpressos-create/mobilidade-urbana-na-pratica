@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSessionForServer } from '@/lib/supabase-auth'
 
 const IBGE_ESTADOS = 'https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome'
 
@@ -12,7 +11,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getSessionForServer()
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
