@@ -34,7 +34,15 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      const supabase = createClient()
+      let supabase
+      try {
+        supabase = createClient()
+      } catch (clientErr) {
+        setError(
+          'Configuração do Supabase ausente. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel.'
+        )
+        return
+      }
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,

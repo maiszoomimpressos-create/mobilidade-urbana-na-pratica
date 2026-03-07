@@ -18,40 +18,45 @@ export type SessionWithUser = {
  * Retorna formato compatível com o que o app usava com NextAuth.
  */
 export async function getSessionForServer(): Promise<SessionWithUser> {
-  const supabase = await createSupabaseServerClient()
-  const {
-    data: { session: supabaseSession },
-  } = await supabase.auth.getSession()
+  try {
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { session: supabaseSession },
+    } = await supabase.auth.getSession()
 
-  if (!supabaseSession?.user?.email) return null
+    if (!supabaseSession?.user?.email) return null
 
-  const email = supabaseSession.user.email
-  const name =
-    (supabaseSession.user.user_metadata?.full_name as string) ||
-    (supabaseSession.user.user_metadata?.name as string) ||
-    null
+    const email = supabaseSession.user.email
+    const name =
+      (supabaseSession.user.user_metadata?.full_name as string) ||
+      (supabaseSession.user.user_metadata?.name as string) ||
+      null
 
-  let user = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true, email: true, name: true, image: true },
-  })
-
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        email,
-        name,
-      },
+    let user = await prisma.user.findUnique({
+      where: { email },
       select: { id: true, email: true, name: true, image: true },
     })
-  }
 
-  return {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      image: user.image,
-    },
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email,
+          name,
+        },
+        select: { id: true, email: true, name: true, image: true },
+      })
+    }
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+      },
+    }
+  } catch (err) {
+    console.error('[getSessionForServer]', err)
+    throw err
   }
 }
