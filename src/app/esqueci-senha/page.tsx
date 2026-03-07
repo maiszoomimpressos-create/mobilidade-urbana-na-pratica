@@ -67,12 +67,17 @@ export default function EsqueciSenhaPage() {
         )}
 
         {success ? (
-          <div className="rounded-md bg-green-50 p-4">
-            <p className="text-sm text-green-800">
-              Se existir uma conta com este email, você receberá um link para redefinir a senha em
-              alguns minutos. Verifique também a pasta de spam.
+          <div className="rounded-md bg-green-50 p-4 space-y-2">
+            <p className="text-sm font-medium text-green-800">
+              Enviamos um link para redefinir a senha para:
             </p>
-            <p className="mt-2 text-sm text-green-700">
+            <p className="text-sm text-green-800 font-mono bg-green-100/50 px-2 py-1 rounded break-all">
+              {email.trim()}
+            </p>
+            <p className="text-sm text-green-700 pt-1">
+              Verifique a caixa de entrada e a pasta de spam desse email. O link expira em 1 hora.
+            </p>
+            <p className="mt-3 text-sm text-green-700">
               <Link href="/login" className="font-medium underline hover:no-underline">
                 Voltar para o login
               </Link>

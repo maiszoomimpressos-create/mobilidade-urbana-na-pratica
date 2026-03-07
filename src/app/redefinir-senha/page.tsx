@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -9,10 +9,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 /**
- * Supabase redireciona para esta página com tokens no hash: #access_token=...&refresh_token=...&type=recovery
+ * Supabase pode redirecionar com:
+ * - Hash: #access_token=...&refresh_token=...&type=recovery
+ * - Query: ?code=... (fluxo PKCE)
  */
 function RedefinirSenhaForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [ready, setReady] = useState(false)
   const [hashError, setHashError] = useState('')
   const [password, setPassword] = useState('')
@@ -23,36 +26,53 @@ function RedefinirSenhaForm() {
 
   useEffect(() => {
     const hash = typeof window !== 'undefined' ? window.location.hash : ''
-    if (!hash) {
-      setHashError('Link inválido ou expirado. Solicite um novo link de redefinição.')
-      setReady(true)
-      return
-    }
-
-    const params = new URLSearchParams(hash.replace(/^#/, ''))
-    const accessToken = params.get('access_token')
-    const refreshToken = params.get('refresh_token')
-    const type = params.get('type')
-
-    if (type !== 'recovery' || !accessToken || !refreshToken) {
-      setHashError('Link inválido ou expirado. Solicite um novo link de redefinição.')
-      setReady(true)
-      return
-    }
+    const code = searchParams.get('code')
 
     const supabase = createClient()
-    supabase.auth
-      .setSession({ access_token: accessToken, refresh_token: refreshToken })
-      .then(() => {
+
+    if (hash) {
+      const params = new URLSearchParams(hash.replace(/^#/, ''))
+      const accessToken = params.get('access_token')
+      const refreshToken = params.get('refresh_token')
+      const type = params.get('type')
+
+      if (type !== 'recovery' || !accessToken || !refreshToken) {
+        setHashError('Link inválido ou expirado. Solicite um novo link de redefinição.')
         setReady(true)
-        // Limpar o hash da URL por segurança
-        window.history.replaceState(null, '', window.location.pathname)
-      })
-      .catch(() => {
-        setHashError('Não foi possível validar o link. Solicite um novo.')
-        setReady(true)
-      })
-  }, [])
+        return
+      }
+
+      supabase.auth
+        .setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(() => {
+          setReady(true)
+          window.history.replaceState(null, '', window.location.pathname)
+        })
+        .catch(() => {
+          setHashError('Não foi possível validar o link. Solicite um novo.')
+          setReady(true)
+        })
+      return
+    }
+
+    if (code) {
+      supabase.auth
+        .exchangeCodeForSession(code)
+        .then(() => {
+          setReady(true)
+          window.history.replaceState(null, '', window.location.pathname)
+        })
+        .catch((err) => {
+          console.error('[redefinir-senha] exchangeCodeForSession:', err)
+          setHashError('Link inválido ou expirado. Solicite um novo link de redefinição.')
+          setReady(true)
+        })
+      return
+    }
+
+    setHashError('Link inválido ou expirado. Solicite um novo link de redefinição.')
+    setReady(true)
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

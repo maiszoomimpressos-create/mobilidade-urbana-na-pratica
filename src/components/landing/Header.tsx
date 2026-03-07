@@ -16,10 +16,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const Header = () => {
-  const { isAuthenticated: isLoggedIn, isMasterAdmin } = useAuth()
+  const { user, isAuthenticated: isLoggedIn, isMasterAdmin } = useAuth()
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isGestor, setIsGestor] = useState(false)
+  const displayName = user?.name?.trim() || user?.email || 'Usuário'
 
   useEffect(() => {
     if (!isLoggedIn) return
@@ -62,14 +63,20 @@ const Header = () => {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="text-hero-foreground hover:text-primary"
-                  aria-label="Abrir menu"
+                  className="text-hero-foreground hover:text-primary gap-2"
+                  aria-label="Abrir menu do usuário"
                 >
-                  <Menu className="h-5 w-5" />
+                  <span className="max-w-[8rem] truncate text-sm font-medium">
+                    {displayName}
+                  </span>
+                  <Menu className="h-5 w-5 shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[12rem]">
+                <div className="px-2 py-2 text-sm text-muted-foreground border-b border-border">
+                  Logado como <span className="font-medium text-foreground truncate block">{displayName}</span>
+                </div>
+                <DropdownMenuSeparator />
                 {isMasterAdmin && (
                   <>
                     <DropdownMenuItem asChild>
@@ -155,6 +162,9 @@ const Header = () => {
             {isLoggedIn && (
               <>
                 <div className="border-t border-primary/10 my-2" />
+                <p className="text-hero-foreground/70 text-sm py-2">
+                  Logado como <span className="font-medium text-hero-foreground">{displayName}</span>
+                </p>
                 <Link href="/dashboard" className="text-hero-foreground/80 hover:text-primary transition-colors font-medium py-2 flex items-center gap-2">
                   <LayoutDashboard className="h-4 w-4" />
                   Ser Parceiro / Minha Marca
