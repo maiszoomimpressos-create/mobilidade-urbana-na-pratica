@@ -33,6 +33,8 @@ export default function LoginPage() {
       }
 
       if (data.session) {
+        // Dar tempo do Supabase persistir a sessão nos cookies antes do redirect
+        await new Promise((r) => setTimeout(r, 300))
         router.push('/dashboard')
         router.refresh()
       }

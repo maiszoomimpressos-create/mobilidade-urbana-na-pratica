@@ -37,12 +37,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const masterEmail = getMasterAdminEmail()
 
-  const refetch = useCallback(async () => {
+  const refetch = useCallback(async (isRetry = false) => {
     try {
-      const res = await fetch('/api/auth/me')
+      const res = await fetch('/api/auth/me', { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
         setUser(data.user)
+      } else if (res.status === 401 && !isRetry) {
+        // Cookie pode ainda não ter sido enviado após login; tentar de novo em breve
+        setTimeout(() => refetch(true), 400)
+        setUser(null)
       } else {
         setUser(null)
       }
