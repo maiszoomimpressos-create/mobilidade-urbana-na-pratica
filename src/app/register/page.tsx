@@ -66,7 +66,15 @@ export default function RegisterPage() {
         return
       }
 
-      router.push('/login?registered=true')
+      // Já logado (sem confirmação de email): vai para a home
+      if (data.session) {
+        await new Promise((r) => setTimeout(r, 300))
+        router.push('/')
+        router.refresh()
+        return
+      }
+
+      router.push('/login')
     } catch {
       setError('Erro ao criar conta. Tente novamente.')
     } finally {

@@ -41,6 +41,23 @@ Se não definir, o padrão é `maiszoomimpressos@gmail.com`.
 
 ---
 
+## Banco de dados em produção
+
+O banco usado na Vercel é o que está em **DATABASE_URL**. As tabelas precisam existir nesse banco.
+
+**Se aparecer "Erro ao criar usuário" ao se cadastrar:**
+
+1. No seu computador, use a **mesma** connection string que está na Vercel (copie de **Settings → Environment Variables**).
+2. No terminal, na pasta do projeto, rode (use a **mesma** URL que está na Vercel):
+   ```bash
+   npx prisma db push
+   ```
+   Antes, defina a variável: no PowerShell `$env:DATABASE_URL="sua_connection_string_do_supabase"` (a mesma que está na Vercel).
+3. No Supabase: em **Settings → Database** use a **Connection string**. Se der erro com a URL de pool, tente a **Direct connection**.
+4. Depois de rodar `prisma db push`, tente criar a conta de novo no site da Vercel.
+
+---
+
 ## Importante
 
 - **NEXTAUTH_URL**: na Vercel use a URL real do deploy, ex: `https://mobilidade-urbana-na-pratica.vercel.app`
