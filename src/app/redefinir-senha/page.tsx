@@ -92,10 +92,26 @@ function RedefinirSenhaForm() {
 
     try {
       const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setError(
+          'Sessão de recuperação expirou ou o link já foi usado. Solicite um novo link em "Esqueci a senha" ou use o script: npx tsx scripts/redefinir-senha-admin.ts seu@email.com NovaSenha123'
+        )
+        setIsLoading(false)
+        return
+      }
+
       const { error: updateError } = await supabase.auth.updateUser({ password })
 
       if (updateError) {
-        setError(updateError.message)
+        const msg = updateError.message
+        if (msg.includes('session') || msg.includes('missing')) {
+          setError(
+            'Sessão expirou ou o link já foi usado. Solicite um novo em "Esqueci a senha" ou use: npx tsx scripts/redefinir-senha-admin.ts seu@email.com NovaSenha123'
+          )
+        } else {
+          setError(msg)
+        }
         return
       }
 
@@ -124,10 +140,13 @@ function RedefinirSenhaForm() {
           <div className="rounded-md bg-red-50 p-4">
             <p className="text-sm text-red-800">{hashError}</p>
           </div>
-          <p className="text-center text-sm">
-            <Link href="/esqueci-senha" className="font-medium text-primary hover:underline">
+          <p className="text-center text-sm space-y-2">
+            <Link href="/esqueci-senha" className="font-medium text-primary hover:underline block">
               Solicitar novo link
             </Link>
+            <span className="block text-muted-foreground text-xs mt-2">
+              Ou use no terminal: npx tsx scripts/redefinir-senha-admin.ts seu@email.com NovaSenha123
+            </span>
           </p>
         </div>
       </div>
@@ -164,8 +183,17 @@ function RedefinirSenhaForm() {
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
-            <div className="rounded-md bg-red-50 p-4">
+            <div className="rounded-md bg-red-50 p-4 space-y-3">
               <p className="text-sm text-red-800">{error}</p>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/esqueci-senha" className="text-sm font-medium text-primary hover:underline">
+                  Solicitar novo link
+                </Link>
+                <span className="text-red-700/70">|</span>
+                <Link href="/login" className="text-sm font-medium text-primary hover:underline">
+                  Voltar ao login
+                </Link>
+              </div>
             </div>
           )}
           <div className="space-y-4">

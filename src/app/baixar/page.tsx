@@ -3,11 +3,31 @@ import Footer from '@/components/landing/Footer'
 import { Button } from '@/components/ui/button'
 import { Smartphone, Apple, Play } from 'lucide-react'
 import Link from 'next/link'
+import { prisma } from '@/lib/prisma'
 
-const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PASSENGER_APP_PLAY_STORE_URL || '#'
-const APP_STORE_URL = process.env.NEXT_PUBLIC_PASSENGER_APP_APP_STORE_URL || '#'
+const APK_URL = process.env.NEXT_PUBLIC_PASSENGER_APP_APK_URL || ''
+const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PASSENGER_APP_PLAY_STORE_URL || ''
+const APP_STORE_URL = process.env.NEXT_PUBLIC_PASSENGER_APP_APP_STORE_URL || ''
+export default async function BaixarPage({
+  searchParams,
+}: {
+  searchParams: { tenant?: string }
+}) {
+  const tenantSlug = searchParams?.tenant?.trim() || 'mai-drive'
+  const isTenant = tenantSlug !== 'mai-drive'
 
-export default function BaixarPage() {
+  let centralName: string | null = null
+  if (isTenant) {
+    const tenant = await prisma.tenant.findFirst({
+      where: { slug: tenantSlug, isActive: true },
+      select: { name: true },
+    })
+    if (tenant) centralName = tenant.name
+  }
+
+  const androidHref = APK_URL || PLAY_STORE_URL || '#'
+  const androidLabel = APK_URL ? 'Baixar para Android (APK)' : 'Google Play (Android)'
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -21,7 +41,13 @@ export default function BaixarPage() {
               App do Passageiro
             </h1>
             <p className="text-muted-foreground text-lg mb-10">
-              Baixe o app Mai Drive e solicite suas corridas com facilidade. Disponível para Android e iPhone.
+              Baixe o app Mai Drive e solicite suas corridas com facilidade.
+              {centralName && (
+                <span className="block mt-2 font-medium text-foreground">
+                  Central {centralName}
+                </span>
+              )}
+              <span className="block mt-1">Disponível para Android e iPhone.</span>
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -32,12 +58,12 @@ export default function BaixarPage() {
                 asChild
               >
                 <Link
-                  href={PLAY_STORE_URL}
+                  href={androidHref}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   <Play className="w-5 h-5" />
-                  Google Play (Android)
+                  {androidLabel}
                 </Link>
               </Button>
               <Button
@@ -47,7 +73,7 @@ export default function BaixarPage() {
                 asChild
               >
                 <Link
-                  href={APP_STORE_URL}
+                  href={APP_STORE_URL || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -57,9 +83,9 @@ export default function BaixarPage() {
               </Button>
             </div>
 
-            {(PLAY_STORE_URL === '#' || APP_STORE_URL === '#') && (
+            {!APK_URL && !PLAY_STORE_URL && !APP_STORE_URL && (
               <p className="text-sm text-muted-foreground mt-6">
-                Os links das lojas serão configurados quando o app estiver publicado.
+                Configure NEXT_PUBLIC_PASSENGER_APP_APK_URL ou os links das lojas no ambiente do site.
               </p>
             )}
           </div>

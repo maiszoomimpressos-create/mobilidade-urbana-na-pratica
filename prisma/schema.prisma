@@ -76,11 +76,27 @@ model VerificationToken {
 // MULTI-TENANT
 // ============================================
 
+/// Config da bandeira Mai Drive (nossa marca) - master configura cores e logo
+model AppBrand {
+  id            String   @id @default(cuid())
+  name          String   @default("Mai Drive")
+  slug          String   @unique @default("mai-drive")
+  logo          String?
+  primaryColor  String   @default("#ebb000")
+  secondaryColor String?  @default("#050505")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("app_brands")
+}
+
 model Tenant {
   id                    String   @id @default(cuid())
   name                  String
   slug                  String   @unique
   logo                  String?
+  primaryColor          String?  // Cor primária do tenant (white label)
+  secondaryColor        String?  // Cor secundária (opcional)
   /// Link para o dono da conta (white-label) controlar/visualizar uso de chamadas de mapa (ex: Google Cloud Console).
   mapUsageDashboardUrl   String?  @db.Text
   isActive              Boolean  @default(true)

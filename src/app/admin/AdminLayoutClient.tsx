@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { LogOut } from "lucide-react"
 
+const DEV_BYPASS = process.env.NODE_ENV === 'development'
+
 export default function AdminLayoutClient({
   children,
 }: {
@@ -17,7 +19,7 @@ export default function AdminLayoutClient({
   const router = useRouter()
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!DEV_BYPASS && !isLoading && !isAuthenticated) {
       router.push('/login')
     }
   }, [isAuthenticated, isLoading, router])
@@ -29,15 +31,15 @@ export default function AdminLayoutClient({
     router.refresh()
   }
 
-  if (isLoading) {
+  // Em produção: aguarda auth e exige login; em dev o painel abre direto
+  if (!DEV_BYPASS && isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-hero">
         <p className="text-hero-foreground">Carregando...</p>
       </div>
     )
   }
-
-  if (!isAuthenticated) {
+  if (!DEV_BYPASS && !isAuthenticated) {
     return null
   }
 
@@ -62,19 +64,29 @@ export default function AdminLayoutClient({
             <div className="flex items-center gap-4">
               <div className="text-right">
                 <p className="text-sm font-medium text-hero-foreground">
-                  {user?.name || user?.email}
+                  {user?.name || user?.email || (DEV_BYPASS ? 'Modo dev (sem login)' : '')}
                 </p>
-                <p className="text-xs text-hero-foreground/60">Administrador Master</p>
+                <p className="text-xs text-hero-foreground/60">
+                  {DEV_BYPASS ? 'Acesso livre para desenvolvimento' : 'Administrador Master'}
+                </p>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-hero-foreground hover:text-primary"
-                onClick={handleLogout}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sair
-              </Button>
+              {DEV_BYPASS ? (
+                <Button variant="ghost" size="sm" asChild>
+                  <a href="/login" className="text-hero-foreground hover:text-primary">
+                    Ir para login
+                  </a>
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-hero-foreground hover:text-primary"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sair
+                </Button>
+              )}
             </div>
           </div>
         </header>

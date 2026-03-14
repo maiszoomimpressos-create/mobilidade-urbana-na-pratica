@@ -39,8 +39,15 @@ export default function EsqueciSenhaPage() {
       }
 
       setSuccess(true)
-    } catch {
-      setError('Erro ao enviar. Tente novamente.')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao enviar. Tente novamente.'
+      setError(msg)
+      // "Failed to fetch" = navegador não conseguiu falar com o Supabase (URL errada, projeto pausado ou rede)
+      if (typeof msg === 'string' && (msg.includes('fetch') || msg.includes('network'))) {
+        setError(
+          `${msg}. Verifique no .env: NEXT_PUBLIC_SUPABASE_URL. No Supabase Dashboard confira se o projeto não está pausado. Alternativa: use o script "npx tsx scripts/redefinir-senha-admin.ts seu@email.com NovaSenha123"`
+        )
+      }
     } finally {
       setIsLoading(false)
     }
@@ -75,7 +82,10 @@ export default function EsqueciSenhaPage() {
               {email.trim()}
             </p>
             <p className="text-sm text-green-700 pt-1">
-              Verifique a caixa de entrada e a pasta de spam desse email. O link expira em 1 hora.
+              Verifique a caixa de entrada e a pasta de spam. O link expira em 1 hora. Abra o link na mesma aba (não copie a URL).
+            </p>
+            <p className="text-sm text-amber-800 bg-amber-50/80 p-2 rounded mt-2">
+              Se aparecer &quot;Link inválido&quot; ou &quot;pedir outro link&quot;, use no terminal: <code className="text-xs bg-amber-100 px-1 rounded">npx tsx scripts/redefinir-senha-admin.ts &quot;{email.trim()}&quot; &quot;SuaNovaSenha123&quot;</code>
             </p>
             <p className="mt-3 text-sm text-green-700">
               <Link href="/login" className="font-medium underline hover:no-underline">

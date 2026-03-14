@@ -15,7 +15,7 @@ async function userCanUpdateTenant(userId: string, tenantId: string): Promise<bo
 }
 
 /**
- * PATCH /api/tenants/[id] - Atualiza dados do tenant (ex: link de controle de uso).
+ * PATCH /api/tenants/[id] - Atualiza dados do tenant (subnome da central, link de controle de uso).
  * Apenas usuários que pertencem ao tenant podem atualizar.
  */
 export async function PATCH(
@@ -46,9 +46,12 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { mapUsageDashboardUrl } = body
+    const { name, mapUsageDashboardUrl } = body
 
-    const data: { mapUsageDashboardUrl?: string | null } = {}
+    const data: { name?: string; mapUsageDashboardUrl?: string | null } = {}
+    if (typeof name === 'string' && name.trim()) {
+      data.name = name.trim()
+    }
     if (typeof mapUsageDashboardUrl === 'string') {
       data.mapUsageDashboardUrl = mapUsageDashboardUrl.trim() || null
     }

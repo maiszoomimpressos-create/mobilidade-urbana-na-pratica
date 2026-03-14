@@ -5,6 +5,18 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🌱 Iniciando seed do banco de dados...')
 
+  // Bandeira Mai Drive (nossa marca) - master configura cores/logo no admin
+  await prisma.appBrand.upsert({
+    where: { slug: 'mai-drive' },
+    update: {},
+    create: {
+      name: 'Mai Drive',
+      slug: 'mai-drive',
+      primaryColor: '#ebb000',
+      secondaryColor: '#050505',
+    },
+  })
+
   // Criar roles padrão
   await prisma.role.upsert({
     where: { slug: 'admin' },

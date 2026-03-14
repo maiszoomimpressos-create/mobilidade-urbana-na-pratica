@@ -26,16 +26,19 @@ type TenantWithLink = {
   mapUsageDashboardUrl: string | null
 }
 
+const DEV_BYPASS = process.env.NODE_ENV === 'development'
+
 export default function DashboardPage() {
   const { user, isAuthenticated, isLoading, isMasterAdmin } = useAuth()
   const router = useRouter()
   const [tenants, setTenants] = useState<TenantWithLink[]>([])
+  const [centralName, setCentralName] = useState('')
   const [usageLink, setUsageLink] = useState('')
-  const [usageLinkSaving, setUsageLinkSaving] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [isGestor, setIsGestor] = useState(false)
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!DEV_BYPASS && !isLoading && !isAuthenticated) {
       router.push('/login')
     }
   }, [isAuthenticated, isLoading, router])
@@ -47,8 +50,9 @@ export default function DashboardPage() {
       .then((data) => {
         const list = data?.user?.tenantUsers?.map((tu: { tenant: TenantWithLink }) => tu.tenant) ?? []
         setTenants(list)
-        if (list.length > 0 && list[0].mapUsageDashboardUrl) {
-          setUsageLink(list[0].mapUsageDashboardUrl)
+        if (list.length > 0) {
+          setCentralName(list[0].name || '')
+          setUsageLink(list[0].mapUsageDashboardUrl || '')
         }
         const roles = data?.user?.tenantUsers?.map((tu: { role: { slug: string } }) => tu.role?.slug) ?? []
         setIsGestor(roles.includes('manager'))
@@ -56,20 +60,27 @@ export default function DashboardPage() {
       .catch(() => {})
   }, [isAuthenticated])
 
-  const saveUsageLink = async () => {
+  const saveTenantSettings = async () => {
     if (tenants.length === 0) return
-    setUsageLinkSaving(true)
+    setSaving(true)
     try {
       const res = await fetch(`/api/tenants/${tenants[0].id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mapUsageDashboardUrl: usageLink.trim() || null }),
+        body: JSON.stringify({
+          name: centralName.trim() || tenants[0].name,
+          mapUsageDashboardUrl: usageLink.trim() || null,
+        }),
       })
       if (!res.ok) throw new Error('Erro ao salvar')
+      const data = await res.json()
+      setTenants((prev) =>
+        prev.map((t) => (t.id === tenants[0].id ? { ...t, name: data.name } : t))
+      )
     } catch {
-      alert('Erro ao salvar o link.')
+      alert('Erro ao salvar.')
     } finally {
-      setUsageLinkSaving(false)
+      setSaving(false)
     }
   }
 
@@ -269,37 +280,53 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Link para controle de uso (white-label: dono da conta) */}
+        {/* Configurações da central (gestor) */}
         {tenants.length > 0 && (
           <Card className="max-w-5xl mx-auto mt-8 border-primary/20 bg-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Link2 className="h-5 w-5 text-primary" />
-                Link para controle de uso das chamadas de mapa
+                <Building2 className="h-5 w-5 text-primary" />
+                Configurações da sua central
               </CardTitle>
               <CardDescription>
-                Se você opera com sua própria marca (white-label), adicione aqui o link onde você controla ou visualiza o uso das chamadas de mapa (ex.: painel do Google Cloud, Mapbox ou outro).
+                O único campo que você pode personalizar é o nome da sua central. Logo, cores e app são sempre da marca Mai Drive.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1">
-                <Label htmlFor="usageLink" className="sr-only">URL do painel de uso</Label>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="centralName">Nome da sua central (subnome)</Label>
+                <Input
+                  id="centralName"
+                  placeholder="Ex.: Central Transporte XYZ"
+                  value={centralName}
+                  onChange={(e) => setCentralName(e.target.value)}
+                  className="max-w-md"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Esse nome aparece no app do passageiro e na página de download quando o usuário acessa pelo seu link.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="usageLink">Link para controle de uso das chamadas de mapa</Label>
                 <Input
                   id="usageLink"
                   type="url"
                   placeholder="https://console.cloud.google.com/..."
                   value={usageLink}
                   onChange={(e) => setUsageLink(e.target.value)}
-                  className="w-full"
+                  className="max-w-md"
                 />
+                <p className="text-sm text-muted-foreground">
+                  Se você usa sua própria API de mapa, adicione o link do painel (ex.: Google Cloud, Mapbox).
+                </p>
               </div>
               <Button
-                onClick={saveUsageLink}
-                disabled={usageLinkSaving}
+                onClick={saveTenantSettings}
+                disabled={saving}
                 className="shrink-0"
               >
                 <Save className="h-4 w-4 mr-2" />
-                {usageLinkSaving ? 'Salvando...' : 'Salvar'}
+                {saving ? 'Salvando...' : 'Salvar'}
               </Button>
             </CardContent>
           </Card>

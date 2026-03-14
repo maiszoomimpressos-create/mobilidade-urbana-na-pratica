@@ -12,6 +12,7 @@ import {
   MapPin,
   FileText,
   Database,
+  Palette,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -55,6 +56,11 @@ const menuItems = [
     title: "Dados",
     href: "/admin/dados",
     icon: Database,
+  },
+  {
+    title: "Nossa Marca",
+    href: "/admin/marca",
+    icon: Palette,
   },
   {
     title: "Configurações",

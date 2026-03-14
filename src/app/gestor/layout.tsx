@@ -9,6 +9,7 @@ import { MapPin, LogOut, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const MASTER_EMAIL = process.env.NEXT_PUBLIC_MASTER_ADMIN_EMAIL ?? 'maiszoomimpressos@gmail.com'
+const DEV_BYPASS = process.env.NODE_ENV === 'development'
 
 export default function GestorLayout({
   children,
@@ -20,11 +21,11 @@ export default function GestorLayout({
   const [isGestor, setIsGestor] = useState<boolean | null>(null)
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!DEV_BYPASS && !isLoading && !isAuthenticated) {
       router.push('/login')
       return
     }
-    if (!isAuthenticated) return
+    if (!DEV_BYPASS && !isAuthenticated) return
     const email = user?.email
     const isMaster = email === MASTER_EMAIL
     if (isMaster) {
@@ -41,7 +42,7 @@ export default function GestorLayout({
   }, [isAuthenticated, isLoading, user?.email, router])
 
   useEffect(() => {
-    if (isGestor === false) {
+    if (!DEV_BYPASS && isGestor === false) {
       router.push('/dashboard')
     }
   }, [isGestor, router])
@@ -53,7 +54,7 @@ export default function GestorLayout({
     router.refresh()
   }
 
-  if (isLoading || isGestor === null) {
+  if (!DEV_BYPASS && (isLoading || isGestor === null)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Carregando...</p>
@@ -61,7 +62,7 @@ export default function GestorLayout({
     )
   }
 
-  if (!isGestor) {
+  if (!DEV_BYPASS && !isGestor) {
     return null
   }
 

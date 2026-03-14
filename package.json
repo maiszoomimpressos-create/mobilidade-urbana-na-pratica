@@ -13,11 +13,14 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
+    "usuario:teste": "tsx scripts/criar-usuario-teste.ts",
+    "senha:redefinir": "tsx scripts/redefinir-senha-admin.ts",
     "db:test": "node scripts/test-db-connection.js",
     "ibge:build-boundaries": "node scripts/ibge-malhas-to-geojson-by-code.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "apk:passenger": "powershell -ExecutionPolicy Bypass -File scripts/gerar-apk-passageiro.ps1"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",
@@ -62,12 +65,15 @@
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
     "autoprefixer": "^10.4.16",
+    "dotenv": "^17.3.1",
     "eslint": "^8.56.0",
     "eslint-config-next": "14.0.4",
     "jest": "^29.7.0",
+    "jimp": "^1.6.0",
     "postcss": "^8.4.32",
     "prisma": "^5.7.1",
     "shapefile": "^0.6.6",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
