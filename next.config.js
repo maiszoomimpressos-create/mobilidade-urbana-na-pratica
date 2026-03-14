@@ -8,6 +8,11 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  experimental: {
+    outputFileTracingExcludes: {
+      '*': ['apps/**', 'scripts/**'],
+    },
+  },
 }
 
 module.exports = nextConfig
