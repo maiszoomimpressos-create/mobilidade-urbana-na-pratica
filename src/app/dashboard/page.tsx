@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useEffect, useState } from 'react'
-import { MapPin, Building2, ArrowRight, Check, Menu, LayoutDashboard, LogOut, Link2, Save, KeyRound, Smartphone } from 'lucide-react'
+import { MapPin, Building2, ArrowRight, Check, Menu, LayoutDashboard, LogOut, Save, KeyRound, Smartphone } from 'lucide-react'
 import Link from 'next/link'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
