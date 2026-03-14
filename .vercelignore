@@ -1,0 +1,4 @@
+# App Expo (não faz parte do build Next.js na Vercel)
+apps/
+# Scripts locais (não usados no deploy)
+scripts/
