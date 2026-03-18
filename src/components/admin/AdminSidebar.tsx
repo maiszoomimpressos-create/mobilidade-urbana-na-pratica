@@ -16,6 +16,7 @@ import {
   ToggleLeft,
   Store,
   Shield,
+  Megaphone,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -74,6 +75,11 @@ const menuItems = [
     title: "Funcionalidades",
     href: "/admin/funcionalidades",
     icon: ToggleLeft,
+  },
+  {
+    title: "Publicidade",
+    href: "/admin/publicidade",
+    icon: Megaphone,
   },
   {
     title: "Permissões",

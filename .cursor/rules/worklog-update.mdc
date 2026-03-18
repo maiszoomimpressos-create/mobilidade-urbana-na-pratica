@@ -1,0 +1,54 @@
+---
+description: Regra para manter o worklog atualizado e permitir retomar trabalho
+globs: **/*
+alwaysApply: true
+---
+
+# Regra do Worklog - Continuidade do Projeto
+
+## Documento Principal
+O arquivo `docs/WORKLOG-PASSAGEIROS.md` é a **fonte de verdade** do projeto. Deve ser atualizado sempre que:
+- Uma funcionalidade for implementada
+- Um bug for corrigido
+- Um SQL for executado no banco
+- Uma API for criada ou modificada
+- Uma página admin for criada ou modificada
+- Algo ficar pendente para testar
+
+## Comando "PUXAR STATUS"
+
+Quando o usuário disser **"puxar status"**, **"status do projeto"** ou **"onde paramos"**:
+
+1. Ler o arquivo `docs/WORKLOG-PASSAGEIROS.md`
+2. Identificar a última entrada (mais recente)
+3. Verificar o que está marcado como **pendente** ou **próximo passo**
+4. Resumir para o usuário:
+   - O que foi feito por último
+   - O que está pendente para testar
+   - Qual o próximo passo sugerido
+5. Perguntar se quer continuar de onde parou
+
+## Formato de Atualização do Worklog
+
+Ao final de cada tarefa significativa, adicionar entrada no formato:
+
+```markdown
+---
+
+### YYYY-MM-DD — Título da funcionalidade
+
+- **Objetivo**: descrição breve do que foi feito
+- **Implementado (banco)**: mudanças no schema/SQL
+- **Implementado (backend)**: APIs criadas/modificadas
+- **Implementado (frontend)**: páginas/componentes
+- **SQL aplicado**: código SQL se houver
+- **Status atual**: o que está funcionando
+- **Pendente**: o que falta testar ou fazer
+- **Próximo passo**: sugestão de continuidade
+```
+
+## Importante
+
+- Nunca assumir que o usuário lembra do contexto anterior
+- Sempre oferecer continuar de onde parou
+- Se houver algo pendente para testar, avisar imediatamente

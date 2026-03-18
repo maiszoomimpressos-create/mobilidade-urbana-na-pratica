@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, Pressable, Text, Alert, TextInput, ScrollView } from 'react-native';
+import { StyleSheet, View, Pressable, Text, Alert, TextInput, ScrollView, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import CityMap from '@/components/CityMap';
 import { TenantSwitcher } from '@/components/TenantSwitcher';
+import { AdBanner } from '@/components/AdBanner';
 import { supabase } from '@/lib/supabase';
 import { useBranding } from '@/contexts/BrandingContext';
 
@@ -25,7 +26,17 @@ export default function InicioScreen() {
   const [destinos, setDestinos] = useState<string[]>(['']);
   const [hasConnectedDriver, setHasConnectedDriver] = useState(false);
   const [bottomSheetHeight, setBottomSheetHeight] = useState<number>(190);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const destinosScrollRef = useRef<ScrollView | null>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const loadUserAndTenants = async () => {
@@ -106,92 +117,104 @@ export default function InicioScreen() {
   return (
     <View style={styles.container}>
       {/* Seletor de central (só aparece para usuários com permissão) */}
-      <View style={styles.topBar}>
-        <TenantSwitcher />
-      </View>
+      {!keyboardVisible && (
+        <View style={styles.topBar}>
+          <TenantSwitcher />
+        </View>
+      )}
 
-      {shouldShowAdSlot && (
+      {shouldShowAdSlot && !keyboardVisible && (
         <View style={styles.adSlot}>
-          <Text style={styles.adSlotLabel}>Espaço publicitário</Text>
+          <AdBanner position="PASSENGER_HOME" />
         </View>
       )}
 
       <View style={styles.mapWrap}>
         <CityMap showDriverMarkers={hasConnectedDriver} />
         {/* Botão sobre o mapa — posicionado logo acima do painel de solicitações */}
-        <Pressable
-          style={[styles.semDestinoWrap, { bottom: bottomSheetHeight + 12 }]}
-          onPress={handleSemDestino}
-        >
-          <View style={[styles.roundBtn, { width: BTN_SIZE, height: BTN_SIZE, borderRadius: BTN_SIZE / 2 }]}>
-            <Ionicons name="navigate" size={24} color="#050505" />
-          </View>
-          <Text style={styles.btnLabel}>Sem Destino</Text>
-        </Pressable>
-      </View>
-
-      {/* Painel inferior: saudação + até 6 buscas de endereço + botão chamar (se digitou) */}
-      <View
-        style={styles.bottomSheet}
-        onLayout={(event) => {
-          const { height } = event.nativeEvent.layout;
-          if (height > 0) setBottomSheetHeight(height);
-        }}
-      >
-        <View style={styles.sheetHandle} />
-        <Text style={styles.greeting}>
-          {getGreeting()}{userName ? `, ${userName}` : ''}
-        </Text>
-        <ScrollView
-          style={styles.destinosScroll}
-          contentContainerStyle={styles.destinosScrollContent}
-          keyboardShouldPersistTaps="handled"
-          ref={destinosScrollRef}
-          showsVerticalScrollIndicator={true}
-        >
-          {destinos.map((valor, index) => (
-            <View key={index} style={styles.searchRow}>
-              <View style={styles.searchDestinoBar}>
-                <Ionicons name="search" size={18} color="#666" />
-                <TextInput
-                  style={styles.searchDestinoInput}
-                  placeholder={index === 0 ? 'Buscar destino' : `Parada ${index}`}
-                  placeholderTextColor="#888"
-                  value={valor}
-                  onChangeText={(v) => updateDestino(index, v)}
-                />
-              </View>
-              {index === destinos.length - 1 && (
-                <View style={styles.actionsRow}>
-                  {podeAdicionar && (
-                    <Pressable
-                      style={styles.addParadaBtn}
-                      onPress={handleAdicionarParada}
-                      hitSlop={8}
-                    >
-                      <Ionicons name="add-circle-outline" size={28} color="#1a1a1a" />
-                    </Pressable>
-                  )}
-                </View>
-              )}
-              {destinos.length > 1 && (
-                <Pressable
-                  style={styles.removeParadaBtn}
-                  onPress={() => handleRemoverParada(index)}
-                  hitSlop={8}
-                >
-                  <Ionicons name="close-circle" size={26} color="#999" />
-                </Pressable>
-              )}
+        {!keyboardVisible && (
+          <Pressable
+            style={[styles.semDestinoWrap, { bottom: bottomSheetHeight + 12 }]}
+            onPress={handleSemDestino}
+          >
+            <View style={[styles.roundBtn, { width: BTN_SIZE, height: BTN_SIZE, borderRadius: BTN_SIZE / 2 }]}>
+              <Ionicons name="navigate" size={24} color="#050505" />
             </View>
-          ))}
-        </ScrollView>
-        {temAlgumDestino && (
-          <Pressable style={styles.chamarCorridaBtn} onPress={handleChamarCorrida}>
-            <Ionicons name="car" size={26} color="#fff" />
+            <Text style={styles.btnLabel}>Sem Destino</Text>
           </Pressable>
         )}
       </View>
+
+      {/* Painel inferior: saudação + até 6 buscas de endereço + botão chamar (se digitou) */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoid}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <View
+          style={[styles.bottomSheet, keyboardVisible && styles.bottomSheetKeyboard]}
+          onLayout={(event) => {
+            const { height } = event.nativeEvent.layout;
+            if (height > 0 && !keyboardVisible) setBottomSheetHeight(height);
+          }}
+        >
+          <View style={styles.sheetHandle} />
+          {!keyboardVisible && (
+            <Text style={styles.greeting}>
+              {getGreeting()}{userName ? `, ${userName}` : ''}
+            </Text>
+          )}
+          <ScrollView
+            style={[styles.destinosScroll, keyboardVisible && styles.destinosScrollKeyboard]}
+            contentContainerStyle={styles.destinosScrollContent}
+            keyboardShouldPersistTaps="handled"
+            ref={destinosScrollRef}
+            showsVerticalScrollIndicator={true}
+          >
+            {destinos.map((valor, index) => (
+              <View key={index} style={styles.searchRow}>
+                <View style={styles.searchDestinoBar}>
+                  <Ionicons name="search" size={18} color="#666" />
+                  <TextInput
+                    style={styles.searchDestinoInput}
+                    placeholder={index === 0 ? 'Buscar destino' : `Parada ${index}`}
+                    placeholderTextColor="#888"
+                    value={valor}
+                    onChangeText={(v) => updateDestino(index, v)}
+                  />
+                </View>
+                {index === destinos.length - 1 && (
+                  <View style={styles.actionsRow}>
+                    {podeAdicionar && (
+                      <Pressable
+                        style={styles.addParadaBtn}
+                        onPress={handleAdicionarParada}
+                        hitSlop={8}
+                      >
+                        <Ionicons name="add-circle-outline" size={28} color="#1a1a1a" />
+                      </Pressable>
+                    )}
+                  </View>
+                )}
+                {destinos.length > 1 && (
+                  <Pressable
+                    style={styles.removeParadaBtn}
+                    onPress={() => handleRemoverParada(index)}
+                    hitSlop={8}
+                  >
+                    <Ionicons name="close-circle" size={26} color="#999" />
+                  </Pressable>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+          {temAlgumDestino && (
+            <Pressable style={styles.chamarCorridaBtn} onPress={handleChamarCorrida}>
+              <Ionicons name="car" size={26} color="#fff" />
+            </Pressable>
+          )}
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -199,6 +222,12 @@ export default function InicioScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  keyboardAvoid: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   topBar: {
     position: 'absolute',
@@ -234,10 +263,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   bottomSheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
     backgroundColor: '#f5f5f5',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -249,6 +274,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
+  },
+  bottomSheetKeyboard: {
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    paddingBottom: 12,
   },
   sheetHandle: {
     width: 36,
@@ -265,9 +295,10 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   destinosScroll: {
-    // altura pensada para exibir aprox. 3 linhas;
-    // se houver mais de 3 campos, o conteúdo passa a rolar
     maxHeight: 140,
+  },
+  destinosScrollKeyboard: {
+    maxHeight: 200,
   },
   destinosScrollContent: {
     paddingBottom: 8,

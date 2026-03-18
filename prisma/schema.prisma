@@ -138,6 +138,7 @@ model Tenant {
   vehicles    Vehicle[]
   tenantCities TenantCity[]
   tenantMapProviderConfigs TenantMapProviderConfig[]
+  advertisements Advertisement[]
 
   @@index([slug])
   @@index([isActive])
@@ -239,16 +240,38 @@ model UserExtraPermission {
 // PLANOS E COBRANÇA
 // ============================================
 
+/// Tipo de operação do plano
+enum PlanTargetType {
+  BRAND       // Nossa Bandeira (Mai Drive)
+  WHITE_LABEL // White-label (marca própria)
+}
+
+/// Tipo de cobrança do plano
+enum PlanChargeType {
+  PER_RIDE  // Por corrida
+  MONTHLY   // Mensal
+}
+
+/// Formato do valor do plano
+enum PlanValueFormat {
+  PERCENTAGE // Porcentagem (%)
+  FIXED      // Valor fixo (R$)
+}
+
 model Plan {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  description String?
-  price       Decimal  @db.Decimal(10, 2)
-  interval    String   // monthly, yearly
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String          @id @default(cuid())
+  name          String
+  slug          String          @unique
+  description   String?
+  targetType    PlanTargetType  @default(BRAND)        // Nossa Bandeira ou White-label
+  chargeType    PlanChargeType  @default(PER_RIDE)     // Por corrida ou Mensal
+  valueFormat   PlanValueFormat @default(FIXED)        // Porcentagem ou Fixo
+  value         Decimal         @db.Decimal(10, 2)     // Valor (R$ ou %)
+  isCustomizable Boolean        @default(false)        // "Do Seu Jeito" - usuário monta
+  sortOrder     Int             @default(0)            // Ordem de exibição
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
   // Relacionamentos
   tenantPlans    TenantPlan[]
@@ -257,6 +280,7 @@ model Plan {
 
   @@index([slug])
   @@index([isActive])
+  @@index([targetType, isActive])
   @@map("plans")
 }
 
@@ -277,10 +301,14 @@ model Feature {
 }
 
 model PlanFeature {
-  id        String   @id @default(cuid())
-  planId    String
-  featureId String
-  createdAt DateTime @default(now())
+  id              String           @id @default(cuid())
+  planId          String
+  featureId       String
+  /// Valor de acréscimo para planos customizáveis (Do Seu Jeito)
+  extraValue      Decimal?         @db.Decimal(10, 2)
+  /// Formato do acréscimo (herda do plano se null)
+  extraValueFormat PlanValueFormat?
+  createdAt       DateTime         @default(now())
 
   // Relacionamentos
   plan    Plan    @relation(fields: [planId], references: [id], onDelete: Cascade)
@@ -712,5 +740,43 @@ model TenantMapProviderConfig {
   @@unique([tenantId, mapProviderType])
   @@index([tenantId])
   @@map("tenant_map_provider_configs")
+}
+
+// ============================================
+// PUBLICIDADE
+// ============================================
+
+/// Posição onde o anúncio pode aparecer
+enum AdPosition {
+  PASSENGER_HOME       // Tela inicial do app passageiro
+  PASSENGER_RIDE       // Durante a corrida
+  DRIVER_HOME          // Tela inicial do app motorista
+  SITE_BANNER          // Banner no site
+}
+
+/// Anúncio/publicidade
+model Advertisement {
+  id          String     @id @default(cuid())
+  tenantId    String?    // null = exibir em todas as centrais
+  title       String     // Título interno (para identificação no admin)
+  imageUrl    String     @db.Text
+  linkUrl     String?    @db.Text // URL ao clicar no anúncio
+  position    AdPosition @default(PASSENGER_HOME)
+  priority    Int        @default(0) // Ordem de exibição (maior = primeiro)
+  startDate   DateTime?  // Data início da exibição (null = imediato)
+  endDate     DateTime?  // Data fim da exibição (null = sem fim)
+  isActive    Boolean    @default(true)
+  impressions Int        @default(0) // Contador de visualizações
+  clicks      Int        @default(0) // Contador de cliques
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relacionamentos
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([position, isActive])
+  @@index([startDate, endDate])
+  @@map("advertisements")
 }
 

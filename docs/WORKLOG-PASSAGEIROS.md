@@ -173,3 +173,152 @@ Use este arquivo para sabermos exatamente **onde paramos** e **qual é o próxim
 - **Regra aplicada**:
   - Ao salvar funcionalidades, a flag `showPassengerAds` da central é sincronizada com a feature `passenger_advertising`.
 
+---
+
+### 2026-03-18 — Sistema de Gestão de Planos (Nossa Bandeira / White-label)
+
+- **Objetivo**:
+  - Criar sistema flexível de planos com dois tipos: Nossa Bandeira (Mai Drive) e White-label.
+  - Permitir configurar tipo de cobrança (por corrida ou mensal) e formato de valor (porcentagem ou fixo).
+  - Suportar planos customizáveis ("Do Seu Jeito").
+
+- **Implementado (banco de dados)**:
+  - Novos tipos enum no Prisma:
+    - `PlanTargetType`: BRAND (Nossa Bandeira) | WHITE_LABEL
+    - `PlanChargeType`: PER_RIDE (por corrida) | MONTHLY (mensal)
+    - `PlanValueFormat`: PERCENTAGE (%) | FIXED (R$)
+  - Novos campos no modelo `Plan`:
+    - `targetType`: define se é plano Nossa Bandeira ou White-label
+    - `chargeType`: por corrida ou mensal
+    - `valueFormat`: porcentagem ou valor fixo
+    - `value`: valor numérico da cobrança
+    - `isCustomizable`: flag para plano "Do Seu Jeito"
+    - `sortOrder`: ordem de exibição
+  - Novos campos no modelo `PlanFeature`:
+    - `extraValue`: valor adicional por funcionalidade (para planos customizáveis)
+    - `extraValueFormat`: formato do valor adicional
+
+- **SQL aplicado** (`scripts/update_plans_quick.sql`):
+  ```sql
+  CREATE TYPE "PlanTargetType" AS ENUM ('BRAND', 'WHITE_LABEL');
+  CREATE TYPE "PlanChargeType" AS ENUM ('PER_RIDE', 'MONTHLY');
+  CREATE TYPE "PlanValueFormat" AS ENUM ('PERCENTAGE', 'FIXED');
+  
+  ALTER TABLE plans 
+    ADD COLUMN "targetType" "PlanTargetType" DEFAULT 'BRAND',
+    ADD COLUMN "chargeType" "PlanChargeType" DEFAULT 'PER_RIDE',
+    ADD COLUMN "valueFormat" "PlanValueFormat" DEFAULT 'FIXED',
+    ADD COLUMN "value" DECIMAL(10,2) DEFAULT 0,
+    ADD COLUMN "isCustomizable" BOOLEAN DEFAULT false,
+    ADD COLUMN "sortOrder" INTEGER DEFAULT 0;
+  ```
+
+- **Implementado (backend)**:
+  - Nova API: `GET /api/admin/plans` - lista todos os planos
+  - Nova API: `POST /api/admin/plans` - cria novo plano
+  - Nova API: `GET /api/admin/plans/[id]` - busca plano específico
+  - Nova API: `PATCH /api/admin/plans/[id]` - atualiza plano
+  - Nova API: `DELETE /api/admin/plans/[id]` - exclui plano
+  - Todas as APIs usam `isMasterAdmin()` para autenticação
+
+- **Implementado (frontend)**:
+  - Nova página `/admin/planos`:
+    - Dois cards principais: "Nossa Bandeira" e "White-label"
+    - Ao clicar em um card, abre popup com lista de planos daquele tipo
+    - Botão "Novo Plano" para criar planos
+  - Popup de criação/edição de plano com:
+    - Nome e slug
+    - Descrição
+    - Tipo de cobrança (Por Corrida / Mensal) via tabs visuais
+    - Formato do valor (Valor Fixo R$ / Porcentagem %) via tabs visuais
+    - Campo de valor numérico
+    - Checkbox "Plano customizável (Do Seu Jeito)"
+    - Checkbox "Plano ativo"
+    - Lista de funcionalidades para incluir no plano
+
+- **Status atual**:
+  - Schema Prisma atualizado ✓
+  - SQL executado no Supabase ✓
+  - APIs criadas ✓
+  - Página admin criada ✓
+  - Criar plano ✓
+  - Editar plano ✓
+  - Listar planos ✓
+
+- **SQLs executados para corrigir erros**:
+  ```sql
+  -- Adicionar colunas extras em plan_features
+  ALTER TABLE plan_features 
+    ADD COLUMN IF NOT EXISTS "extraValue" DECIMAL(10,2),
+    ADD COLUMN IF NOT EXISTS "extraValueFormat" "PlanValueFormat";
+  
+  -- Remover colunas antigas não usadas
+  ALTER TABLE plans DROP COLUMN IF EXISTS "price";
+  ALTER TABLE plans DROP COLUMN IF EXISTS "interval";
+  ```
+
+- **Funcionalidade completa** ✓
+
+---
+
+### 2026-03-18 — Página pública de planos dinâmica
+
+- **Objetivo**: Fazer a página `/planos` puxar os planos do banco de dados
+
+- **Implementado**:
+  - Nova API pública: `GET /api/public/plans` - lista planos ativos por tipo
+  - Página `/planos` atualizada para buscar planos do banco
+  - Exibe valor formatado (R$ ou %)
+  - Indica tipo de cobrança (por corrida ou mensal)
+  - Mostra funcionalidades vinculadas ao plano
+  - Botão "Começar Agora" direciona para `/parceiro?plano=slug`
+  - Layout responsivo adapta ao número de planos
+
+- **Status**: ✓ Funcionando
+
+---
+
+### 2026-03-18 — App do Motorista (estrutura inicial)
+
+- **Objetivo**: Criar a base do app do motorista seguindo o mesmo padrão do app passageiro
+
+- **Estrutura criada** (`apps/driver/`):
+  - `package.json` - dependências (Expo, React Native, Supabase, Maps)
+  - `app.json` - configuração do Expo (nome: Mai Drive Motorista, package: com.maidrive.driver)
+  - `eas.json` - configuração de build
+  - `tsconfig.json` - TypeScript config
+
+- **Libs criadas**:
+  - `lib/supabase.ts` - cliente Supabase
+  - `lib/api.ts` - funções para chamadas API
+
+- **Contextos criados**:
+  - `contexts/AuthContext.tsx` - autenticação e dados do motorista
+  - `contexts/DriverStatusContext.tsx` - controle de status online/offline
+
+- **Telas de autenticação**:
+  - `app/(auth)/login.tsx` - login
+  - `app/(auth)/register.tsx` - cadastro de motorista
+  - `app/(auth)/forgot-password.tsx` - recuperação de senha
+
+- **Telas principais (tabs)**:
+  - `app/(tabs)/index.tsx` - Home com status online/offline, estatísticas do dia
+  - `app/(tabs)/rides.tsx` - Lista de corridas disponíveis para aceitar
+  - `app/(tabs)/history.tsx` - Histórico de corridas realizadas
+  - `app/(tabs)/earnings.tsx` - Resumo de ganhos (hoje, semana, mês)
+  - `app/(tabs)/profile.tsx` - Perfil, veículo, documentos, logout
+
+- **Funcionalidades implementadas**:
+  - Toggle online/offline
+  - Localização em tempo real
+  - Lista de corridas disponíveis (atualiza a cada 10s)
+  - Aceitar corrida
+  - Histórico com status (concluída/cancelada)
+  - Resumo de ganhos por período
+  - Aviso de cadastro em análise
+
+- **Próximos passos**:
+  - Criar APIs no backend para o motorista (`/api/app/driver/*`)
+  - Instalar dependências (`npm install` na pasta driver)
+  - Testar o app
+
