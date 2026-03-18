@@ -15,7 +15,7 @@ async function userCanUpdateTenant(userId: string, tenantId: string): Promise<bo
 }
 
 /**
- * PATCH /api/tenants/[id] - Atualiza dados do tenant (subnome da central, link de controle de uso).
+ * PATCH /api/tenants/[id] - Atualiza dados do tenant (subnome da central, link de controle de uso e cores).
  * Apenas usuários que pertencem ao tenant podem atualizar.
  */
 export async function PATCH(
@@ -46,14 +46,25 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, mapUsageDashboardUrl } = body
+    const { name, mapUsageDashboardUrl, primaryColor, secondaryColor } = body
 
-    const data: { name?: string; mapUsageDashboardUrl?: string | null } = {}
+    const data: {
+      name?: string
+      mapUsageDashboardUrl?: string | null
+      primaryColor?: string | null
+      secondaryColor?: string | null
+    } = {}
     if (typeof name === 'string' && name.trim()) {
       data.name = name.trim()
     }
     if (typeof mapUsageDashboardUrl === 'string') {
       data.mapUsageDashboardUrl = mapUsageDashboardUrl.trim() || null
+    }
+    if (typeof primaryColor === 'string') {
+      data.primaryColor = primaryColor.trim() || null
+    }
+    if (typeof secondaryColor === 'string') {
+      data.secondaryColor = secondaryColor.trim() || null
     }
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: 'Nenhum campo para atualizar' }, { status: 400 })
@@ -62,6 +73,14 @@ export async function PATCH(
     const tenant = await prisma.tenant.update({
       where: { id: tenantId },
       data,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        mapUsageDashboardUrl: true,
+        primaryColor: true,
+        secondaryColor: true,
+      },
     })
 
     return NextResponse.json({
@@ -69,6 +88,8 @@ export async function PATCH(
       name: tenant.name,
       slug: tenant.slug,
       mapUsageDashboardUrl: tenant.mapUsageDashboardUrl,
+      primaryColor: tenant.primaryColor,
+      secondaryColor: tenant.secondaryColor,
     })
   } catch (error) {
     console.error('Erro ao atualizar tenant:', error)

@@ -1,18 +1,26 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ChangeEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
+type BrandLogoFormItem = {
+  id?: string
+  url: string
+  label: string
+  isActive: boolean
+}
+
 export default function MarcaPage() {
   const [name, setName] = useState("")
-  const [logo, setLogo] = useState("")
+  const [logos, setLogos] = useState<BrandLogoFormItem[]>([])
   const [primaryColor, setPrimaryColor] = useState("#ebb000")
   const [secondaryColor, setSecondaryColor] = useState("#050505")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   useEffect(() => {
@@ -23,7 +31,18 @@ export default function MarcaPage() {
       })
       .then((data) => {
         setName(data.name ?? "Mai Drive")
-        setLogo(data.logo ?? "")
+        const loadedLogos =
+          Array.isArray(data.logos) && data.logos.length > 0
+            ? data.logos.map((item: { id?: string; url?: string; label?: string; isActive?: boolean }) => ({
+                id: item.id,
+                url: typeof item.url === "string" ? item.url : "",
+                label: typeof item.label === "string" ? item.label : "",
+                isActive: item.isActive === true,
+              }))
+            : data.logo
+              ? [{ url: data.logo, label: "Logo principal", isActive: true }]
+              : []
+        setLogos(loadedLogos)
         setPrimaryColor(data.primaryColor ?? "#ebb000")
         setSecondaryColor(data.secondaryColor ?? "#050505")
       })
@@ -31,22 +50,99 @@ export default function MarcaPage() {
       .finally(() => setLoading(false))
   }, [])
 
+  const addEmptyLogo = () => {
+    setLogos((prev) => [...prev, { url: "", label: "", isActive: prev.length === 0 }])
+  }
+
+  const removeLogo = (index: number) => {
+    setLogos((prev) => {
+      const next = prev.filter((_, itemIndex) => itemIndex !== index)
+      if (next.length > 0 && !next.some((item) => item.isActive)) {
+        next[0] = { ...next[0], isActive: true }
+      }
+      return next
+    })
+  }
+
+  const setActiveLogo = (index: number) => {
+    setLogos((prev) =>
+      prev.map((item, itemIndex) => ({
+        ...item,
+        isActive: itemIndex === index,
+      }))
+    )
+  }
+
+  const handleUploadLogo = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+
+    setUploadingLogo(true)
+    setMessage(null)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("tenantId", "mai-drive-brand")
+
+      const response = await fetch("/api/admin/tenants/logo-upload", {
+        method: "POST",
+        body: formData,
+      })
+      const data = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "Erro ao fazer upload da logo.")
+      }
+
+      const url = typeof data?.url === "string" ? data.url : ""
+      if (!url) {
+        throw new Error("Upload concluído sem URL.")
+      }
+
+      setLogos((prev) => [...prev, { url, label: "", isActive: prev.length === 0 }])
+      setMessage({ type: "success", text: "Logo enviada com sucesso." })
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Erro ao enviar logo.",
+      })
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
   const handleSave = async () => {
     setSaving(true)
     setMessage(null)
     try {
+      const sanitizedLogos = logos
+        .map((item) => ({
+          url: item.url.trim(),
+          label: item.label.trim(),
+          isActive: item.isActive,
+        }))
+        .filter((item) => item.url.length > 0)
+
+      if (sanitizedLogos.length > 0 && !sanitizedLogos.some((item) => item.isActive)) {
+        sanitizedLogos[0].isActive = true
+      }
+
+      const selectedLogo = sanitizedLogos.find((item) => item.isActive)?.url ?? sanitizedLogos[0]?.url ?? null
+
       const res = await fetch("/api/admin/brand", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim() || "Mai Drive",
-          logo: logo.trim() || null,
+          logo: selectedLogo,
+          logos: sanitizedLogos,
           primaryColor: primaryColor || "#ebb000",
           secondaryColor: secondaryColor.trim() || "#050505",
         }),
       })
       if (!res.ok) throw new Error("Erro ao salvar")
-      setMessage({ type: "success", text: "Configuração salva. O app do passageiro usará essas cores e logo." })
+      setMessage({ type: "success", text: "Configuração salva. Apps usarão as cores e a logo ativa." })
     } catch {
       setMessage({ type: "error", text: "Erro ao salvar. Verifique se você é o admin master." })
     } finally {
@@ -75,7 +171,7 @@ export default function MarcaPage() {
         <CardHeader>
           <CardTitle>Identidade visual</CardTitle>
           <CardDescription>
-            Personalize nome, logo e cores. Essas configurações aparecem na tela de login e nas demais telas do app.
+            Personalize nome, múltiplas logos e cores. Uma logo fica ativa por vez para exibição no app.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -89,17 +185,80 @@ export default function MarcaPage() {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="logo">URL da logo</Label>
-            <Input
-              id="logo"
-              type="url"
-              value={logo}
-              onChange={(e) => setLogo(e.target.value)}
-              placeholder="https://exemplo.com/logo.png"
-            />
+          <div className="space-y-3">
+            <Label>Logos da bandeira</Label>
+            {logos.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhuma logo cadastrada. Adicione por URL ou faça upload.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {logos.map((item, index) => (
+                  <div key={`${item.id ?? "new"}-${index}`} className="rounded-md border p-3 space-y-2">
+                    <div className="grid gap-2 sm:grid-cols-[1fr_220px_auto] items-end">
+                      <div className="space-y-1">
+                        <Label>URL</Label>
+                        <Input
+                          type="url"
+                          value={item.url}
+                          onChange={(e) =>
+                            setLogos((prev) =>
+                              prev.map((logoItem, itemIndex) =>
+                                itemIndex === index ? { ...logoItem, url: e.target.value } : logoItem
+                              )
+                            )
+                          }
+                          placeholder="https://exemplo.com/logo.webp"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Rótulo</Label>
+                        <Input
+                          value={item.label}
+                          onChange={(e) =>
+                            setLogos((prev) =>
+                              prev.map((logoItem, itemIndex) =>
+                                itemIndex === index ? { ...logoItem, label: e.target.value } : logoItem
+                              )
+                            )
+                          }
+                          placeholder="Ex.: Vertical, Horizontal..."
+                        />
+                      </div>
+                      <Button variant="outline" onClick={() => removeLogo(index)}>
+                        Remover
+                      </Button>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="active-brand-logo"
+                        checked={item.isActive}
+                        onChange={() => setActiveLogo(index)}
+                      />
+                      Usar esta logo como ativa
+                    </label>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={addEmptyLogo}>
+                Adicionar logo por URL
+              </Button>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={handleUploadLogo}
+                disabled={uploadingLogo}
+                className="max-w-xs"
+              />
+            </div>
             <p className="text-xs text-muted-foreground">
-              Deixe vazio para usar a primeira letra do nome como placeholder.
+              {uploadingLogo
+                ? "Enviando e convertendo imagem para WebP..."
+                : "No upload, a imagem é convertida para WebP e adicionada à lista."}
             </p>
           </div>
 

@@ -32,6 +32,8 @@ export async function GET(_request: NextRequest) {
                 name: true,
                 slug: true,
                 logo: true,
+                primaryColor: true,
+                secondaryColor: true,
                 mapUsageDashboardUrl: true,
               },
             },

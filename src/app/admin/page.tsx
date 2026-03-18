@@ -133,11 +133,16 @@ export default function AdminDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="p-4 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all text-left">
+            <button
+              className="p-4 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all text-left"
+              onClick={() => {
+                window.location.href = "/admin/parceiros"
+              }}
+            >
               <Building2 className="w-6 h-6 text-primary mb-2" />
-              <h3 className="font-semibold text-foreground">Novo Parceiro</h3>
+              <h3 className="font-semibold text-foreground">Ir para Parceiros</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Cadastrar novo parceiro no sistema
+                Acessar a tela de criação de centrais
               </p>
             </button>
             <button className="p-4 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all text-left">

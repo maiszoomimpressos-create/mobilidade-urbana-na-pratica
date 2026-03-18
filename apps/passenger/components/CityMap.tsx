@@ -13,16 +13,21 @@ const DEFAULT_REGION = {
   longitudeDelta: 0.05,
 }
 
-export default function CityMap() {
+type CityMapProps = {
+  showDriverMarkers?: boolean
+}
+
+export default function CityMap({ showDriverMarkers = false }: CityMapProps) {
   const mapRef = useRef<MapView>(null)
   const [initialRegion, setInitialRegion] = useState(DEFAULT_REGION)
   const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null)
 
   // Motoristas online (demo). Depois: buscar da API em tempo real.
   const drivers = useMemo<OnlineDriver[]>(() => {
+    if (!showDriverMarkers) return []
     const center = userCoords ?? { latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude }
     return getOnlineDrivers(center.latitude, center.longitude)
-  }, [userCoords])
+  }, [showDriverMarkers, userCoords])
 
   useEffect(() => {
     let cancelled = false

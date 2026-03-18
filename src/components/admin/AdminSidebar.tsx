@@ -13,6 +13,9 @@ import {
   FileText,
   Database,
   Palette,
+  ToggleLeft,
+  Store,
+  Shield,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -23,7 +26,12 @@ const menuItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "Parceiros",
+    title: "Centrais",
+    href: "/admin/centrais",
+    icon: Store,
+  },
+  {
+    title: "Nova Central",
     href: "/admin/parceiros",
     icon: Building2,
   },
@@ -63,6 +71,16 @@ const menuItems = [
     icon: Palette,
   },
   {
+    title: "Funcionalidades",
+    href: "/admin/funcionalidades",
+    icon: ToggleLeft,
+  },
+  {
+    title: "Permissões",
+    href: "/admin/permissoes",
+    icon: Shield,
+  },
+  {
     title: "Configurações",
     href: "/admin/configuracoes",
     icon: Settings,
@@ -93,10 +111,13 @@ export default function AdminSidebar() {
       <nav className="flex-1 p-4 space-y-1">
         {menuItems.map((item) => {
           const Icon = item.icon
-          const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+          const isDashboard = item.href === "/admin"
+          const isActive = isDashboard
+            ? pathname === "/admin"
+            : pathname === item.href || pathname?.startsWith(item.href + '/')
           
           return (
-            <Link
+            <a
               key={item.href}
               href={item.href}
               className={cn(
@@ -108,7 +129,7 @@ export default function AdminSidebar() {
             >
               <Icon className="w-5 h-5" />
               <span className="font-medium">{item.title}</span>
-            </Link>
+            </a>
           )
         })}
       </nav>

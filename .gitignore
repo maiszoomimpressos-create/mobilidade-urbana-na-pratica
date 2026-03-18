@@ -54,3 +54,6 @@ Thumbs.db
 # Dados pesados (ex.: malhas IBGE)
 /data/
 
+# Fluxo local (não subir – consultar antes de push/merge para main)
+WORKFLOW-LOCAL.md
+

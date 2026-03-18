@@ -25,9 +25,10 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   // Relacionamentos
-  tenantUsers   TenantUser[]
-  accounts      Account[]
-  sessions      Session[]
+  tenantUsers      TenantUser[]
+  accounts         Account[]
+  sessions         Session[]
+  extraPermissions UserExtraPermission[]
 
   @@index([email])
   @@map("users")
@@ -84,10 +85,30 @@ model AppBrand {
   logo          String?
   primaryColor  String   @default("#ebb000")
   secondaryColor String?  @default("#050505")
+  /// Habilita o espaço de publicidade no app do passageiro para a bandeira Mai Drive.
+  showPassengerAds Boolean @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  logos         AppBrandLogo[]
 
   @@map("app_brands")
+}
+
+model AppBrandLogo {
+  id         String   @id @default(cuid())
+  appBrandId String
+  logoUrl    String   @db.Text
+  label      String?
+  isActive   Boolean  @default(false)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  appBrand AppBrand @relation(fields: [appBrandId], references: [id], onDelete: Cascade)
+
+  @@index([appBrandId, isActive])
+  @@index([appBrandId, sortOrder])
+  @@map("app_brand_logos")
 }
 
 model Tenant {
@@ -97,6 +118,8 @@ model Tenant {
   logo                  String?
   primaryColor          String?  // Cor primária do tenant (white label)
   secondaryColor        String?  // Cor secundária (opcional)
+  /// Habilita o espaço de publicidade no app do passageiro para esta central.
+  showPassengerAds      Boolean  @default(false)
   /// Link para o dono da conta (white-label) controlar/visualizar uso de chamadas de mapa (ex: Google Cloud Console).
   mapUsageDashboardUrl   String?  @db.Text
   isActive              Boolean  @default(true)
@@ -172,7 +195,8 @@ model Permission {
   updatedAt   DateTime @updatedAt
 
   // Relacionamentos
-  rolePermissions RolePermission[]
+  rolePermissions      RolePermission[]
+  userExtraPermissions UserExtraPermission[]
 
   @@index([slug])
   @@map("permissions")
@@ -191,6 +215,24 @@ model RolePermission {
   @@unique([roleId, permissionId])
   @@index([roleId])
   @@map("role_permissions")
+}
+
+/// Permissões extras individuais por usuário (grant = adiciona, revoke = remove)
+model UserExtraPermission {
+  id           String   @id @default(cuid())
+  userId       String
+  permissionId String
+  type         String   // "grant" ou "revoke"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relacionamentos
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId])
+  @@index([userId])
+  @@map("user_extra_permissions")
 }
 
 // ============================================

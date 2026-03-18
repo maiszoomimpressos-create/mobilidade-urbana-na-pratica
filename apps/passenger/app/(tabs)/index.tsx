@@ -3,7 +3,9 @@ import { StyleSheet, View, Pressable, Text, Alert, TextInput, ScrollView } from 
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import CityMap from '@/components/CityMap';
+import { TenantSwitcher } from '@/components/TenantSwitcher';
 import { supabase } from '@/lib/supabase';
+import { useBranding } from '@/contexts/BrandingContext';
 
 const BTN_SIZE = 52;
 const AD_BANNER_HEIGHT = 72;
@@ -18,25 +20,35 @@ function getGreeting(): string {
 }
 
 export default function InicioScreen() {
+  const { branding, loadAvailableTenants } = useBranding();
   const [userName, setUserName] = useState<string>('');
   const [destinos, setDestinos] = useState<string[]>(['']);
-  // Altura atual do painel inferior (usado para manter o botão Sem Destino logo acima dele)
+  const [hasConnectedDriver, setHasConnectedDriver] = useState(false);
   const [bottomSheetHeight, setBottomSheetHeight] = useState<number>(190);
   const destinosScrollRef = useRef<ScrollView | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    const loadUserAndTenants = async () => {
+      const { data } = await supabase.auth.getUser();
       const name =
         data.user?.user_metadata?.full_name ??
         data.user?.user_metadata?.name ??
         data.user?.email?.split('@')[0] ??
         '';
       setUserName(name);
-    });
-  }, []);
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (token) {
+        await loadAvailableTenants(token);
+      }
+    };
+    loadUserAndTenants();
+  }, [loadAvailableTenants]);
 
   const handleChamarCorrida = () => {
     const preenchidos = destinos.filter((d) => d.trim().length > 0);
+    setHasConnectedDriver(true);
     Alert.alert('Chamar corrida', `Destinos: ${preenchidos.join(' → ')}. Em breve: cálculo e envio ao motorista.`, [{ text: 'OK' }]);
   };
 
@@ -65,6 +77,8 @@ export default function InicioScreen() {
 
   const temAlgumDestino = destinos.some((d) => d.trim().length > 0);
   const podeAdicionar = destinos.length < MAX_DESTINOS;
+  const hasAssignedTenant = branding.slug.trim().length > 0 && branding.slug !== 'mai-drive';
+  const shouldShowAdSlot = branding.showPassengerAds && hasAssignedTenant;
 
   const handleSemDestino = async () => {
     try {
@@ -78,6 +92,7 @@ export default function InicioScreen() {
       }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const { latitude, longitude } = loc.coords;
+      setHasConnectedDriver(true);
       Alert.alert(
         'Chamar sem destino',
         `Sua localização foi enviada. O motorista mais próximo será acionado. (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`,
@@ -90,13 +105,19 @@ export default function InicioScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Área de publicidade no topo */}
-      <View style={styles.adSlot}>
-        <Text style={styles.adSlotLabel}>Espaço publicitário</Text>
+      {/* Seletor de central (só aparece para usuários com permissão) */}
+      <View style={styles.topBar}>
+        <TenantSwitcher />
       </View>
 
+      {shouldShowAdSlot && (
+        <View style={styles.adSlot}>
+          <Text style={styles.adSlotLabel}>Espaço publicitário</Text>
+        </View>
+      )}
+
       <View style={styles.mapWrap}>
-        <CityMap />
+        <CityMap showDriverMarkers={hasConnectedDriver} />
         {/* Botão sobre o mapa — posicionado logo acima do painel de solicitações */}
         <Pressable
           style={[styles.semDestinoWrap, { bottom: bottomSheetHeight + 12 }]}
@@ -179,9 +200,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  topBar: {
+    position: 'absolute',
+    top: 50,
+    left: 16,
+    zIndex: 30,
+  },
   adSlot: {
     position: 'absolute',
-    top: 12,
+    top: 100,
     left: 0,
     right: 0,
     alignItems: 'center',

@@ -1,0 +1,15 @@
+---
+description: Antes de push para main ou merge staging→main, ler o workflow local.
+globs: 
+alwaysApply: false
+---
+
+# Fluxo staging → main
+
+Antes de fazer **push para a branch `main`** ou **merge de `staging` na `main`**:
+
+1. **Ler o arquivo `WORKFLOW-LOCAL.md`** na raiz do projeto (se existir).
+2. Seguir o **checklist** e a **regra de ouro** descritos nesse arquivo: testar primeiro na staging (preview Vercel), validar, e só então ativar na main.
+3. Não pular a validação no ambiente de teste (staging) antes de atualizar produção.
+
+O arquivo `WORKFLOW-LOCAL.md` é local e não vai para o Git (.gitignore); use-o como referência do que foi combinado para deploy e merge.

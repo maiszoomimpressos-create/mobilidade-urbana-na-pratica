@@ -60,6 +60,13 @@ interface MapasConfigProps {
   variant?: Variant
 }
 
+interface TenantVisualConfig {
+  tenantId: string
+  tenantName: string
+  primaryColor: string
+  secondaryColor: string
+}
+
 export default function MapasConfig({ variant = 'admin' }: MapasConfigProps) {
   const [providers, setProviders] = useState<MapProviderStats[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -73,6 +80,8 @@ export default function MapasConfig({ variant = 'admin' }: MapasConfigProps) {
     results: Array<{ type: string; name: string; ok: boolean; keyPresent: boolean; message: string; detail?: string }>
     summary: string
   } | null>(null)
+  const [tenantVisual, setTenantVisual] = useState<TenantVisualConfig | null>(null)
+  const [savingTenantVisual, setSavingTenantVisual] = useState(false)
 
   const loadStats = useCallback(async () => {
     try {
@@ -92,6 +101,29 @@ export default function MapasConfig({ variant = 'admin' }: MapasConfigProps) {
   useEffect(() => {
     loadStats()
   }, [loadStats])
+
+  const loadTenantVisual = useCallback(async () => {
+    if (variant !== 'gestor') return
+    try {
+      const response = await fetch('/api/auth/me')
+      if (!response.ok) return
+      const data = await response.json()
+      const tenant = data?.user?.tenantUsers?.[0]?.tenant
+      if (!tenant?.id) return
+      setTenantVisual({
+        tenantId: tenant.id,
+        tenantName: tenant.name ?? 'Central',
+        primaryColor: tenant.primaryColor ?? '#ebb000',
+        secondaryColor: tenant.secondaryColor ?? '#050505',
+      })
+    } catch (error) {
+      console.error('Erro ao carregar identidade visual do tenant:', error)
+    }
+  }, [variant])
+
+  useEffect(() => {
+    void loadTenantVisual()
+  }, [loadTenantVisual])
 
   const openConfig = async (provider: MapProviderStats) => {
     try {
@@ -190,6 +222,31 @@ export default function MapasConfig({ variant = 'admin' }: MapasConfigProps) {
     }
   }
 
+  const saveTenantVisualConfig = async () => {
+    if (!tenantVisual) return
+    setSavingTenantVisual(true)
+    try {
+      const response = await fetch(`/api/tenants/${tenantVisual.tenantId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          primaryColor: tenantVisual.primaryColor,
+          secondaryColor: tenantVisual.secondaryColor,
+        }),
+      })
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Erro ao salvar cores do app.')
+      }
+      alert('Cores salvas com sucesso.')
+    } catch (error) {
+      console.error('Erro ao salvar cores do app:', error)
+      alert(error instanceof Error ? error.message : 'Erro ao salvar cores do app.')
+    } finally {
+      setSavingTenantVisual(false)
+    }
+  }
+
   const getProviderName = (type: string) => {
     const names: Record<string, string> = {
       GOOGLE_MAPS: 'Google Maps',
@@ -283,6 +340,60 @@ export default function MapasConfig({ variant = 'admin' }: MapasConfigProps) {
           </div>
         </CardContent>
       </Card>
+
+      {variant === 'gestor' && tenantVisual && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Cores do app da central</CardTitle>
+            <CardDescription>
+              Defina as cores exibidas no app da central <strong>{tenantVisual.tenantName}</strong>.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="tenantPrimaryColor">Cor primária</Label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    id="tenantPrimaryColor"
+                    type="color"
+                    value={tenantVisual.primaryColor || '#ebb000'}
+                    onChange={(e) => setTenantVisual((prev) => (prev ? { ...prev, primaryColor: e.target.value } : prev))}
+                    className="h-10 w-14 rounded border cursor-pointer"
+                  />
+                  <Input
+                    value={tenantVisual.primaryColor}
+                    onChange={(e) => setTenantVisual((prev) => (prev ? { ...prev, primaryColor: e.target.value } : prev))}
+                    placeholder="#ebb000"
+                    className="font-mono"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tenantSecondaryColor">Cor secundária</Label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    id="tenantSecondaryColor"
+                    type="color"
+                    value={tenantVisual.secondaryColor || '#050505'}
+                    onChange={(e) => setTenantVisual((prev) => (prev ? { ...prev, secondaryColor: e.target.value } : prev))}
+                    className="h-10 w-14 rounded border cursor-pointer"
+                  />
+                  <Input
+                    value={tenantVisual.secondaryColor}
+                    onChange={(e) => setTenantVisual((prev) => (prev ? { ...prev, secondaryColor: e.target.value } : prev))}
+                    placeholder="#050505"
+                    className="font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+            <Button onClick={saveTenantVisualConfig} disabled={savingTenantVisual}>
+              {savingTenantVisual ? 'Salvando cores...' : 'Salvar cores do app'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {testResults && (
         <Card className="border-border">
