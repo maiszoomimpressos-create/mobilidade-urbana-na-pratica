@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { API_URL } from '@/lib/api'
 
 interface Driver {
   id: string
@@ -41,16 +42,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchDriver = useCallback(async (userId: string, token: string) => {
     try {
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || ''
       const response = await fetch(`${API_URL}/api/app/driver/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
-      
+
       if (response.ok) {
         const data = await response.json()
-        setDriver(data.driver)
+        if (data.driver) {
+          setDriver(data.driver)
+          return
+        }
+        // Usuário logado mas sem perfil de motorista → criar automaticamente
+        const registerRes = await fetch(`${API_URL}/api/app/driver/register`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        if (registerRes.ok) {
+          const registerData = await registerRes.json()
+          setDriver(registerData.driver)
+        } else {
+          setDriver(null)
+        }
       } else {
         setDriver(null)
       }

@@ -10,6 +10,7 @@ import {
 import { useColorScheme } from 'react-native'
 import { Colors } from '@/constants/Colors'
 import { useAuth } from '@/contexts/AuthContext'
+import { API_URL } from '@/lib/api'
 
 interface EarningsSummary {
   today: number
@@ -43,7 +44,6 @@ export default function EarningsScreen() {
     }
 
     try {
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || ''
       const response = await fetch(`${API_URL}/api/app/driver/earnings`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`,

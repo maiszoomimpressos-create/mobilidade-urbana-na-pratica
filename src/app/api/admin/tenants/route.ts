@@ -51,10 +51,18 @@ export async function GET() {
         isActive: true,
         createdAt: true,
         showPassengerAds: true,
+        type: true,
+        wlAppName: true,
+        wlAppPackage: true,
+        wlAppIcon: true,
+        wlSplashImage: true,
+        wlPassengerApkUrl: true,
+        wlDriverApkUrl: true,
+        wlBuildStatus: true,
+        wlLastBuildAt: true,
         tenantCities: {
           where: { isActive: true },
           orderBy: { createdAt: 'desc' },
-          take: 1,
           select: {
             city: {
               select: {
@@ -77,6 +85,18 @@ export async function GET() {
         isActive: tenant.isActive,
         createdAt: tenant.createdAt,
         showPassengerAds: tenant.showPassengerAds,
+        type: tenant.type,
+        wlAppName: tenant.wlAppName,
+        wlAppPackage: tenant.wlAppPackage,
+        wlAppIcon: tenant.wlAppIcon,
+        wlSplashImage: tenant.wlSplashImage,
+        wlPassengerApkUrl: tenant.wlPassengerApkUrl,
+        wlDriverApkUrl: tenant.wlDriverApkUrl,
+        wlBuildStatus: tenant.wlBuildStatus,
+        wlLastBuildAt: tenant.wlLastBuildAt,
+        linkedCities: tenant.tenantCities
+          .map((item) => item.city)
+          .filter((city): city is { id: string; name: string; state: string } => Boolean(city)),
         linkedCity: tenant.tenantCities?.[0]?.city ?? null,
       })),
     })
@@ -104,8 +124,21 @@ export async function POST(request: NextRequest) {
     const customSlug = typeof body?.slug === 'string' ? body.slug.trim() : ''
     const logo = typeof body?.logo === 'string' ? body.logo.trim() : ''
     const cityId = typeof body?.cityId === 'string' ? body.cityId.trim() : ''
+    const cityIdsRaw = Array.isArray(body?.cityIds) ? (body.cityIds as unknown[]) : []
+    const cityIds = Array.from(
+      new Set(
+        cityIdsRaw
+          .filter((value): value is string => typeof value === 'string')
+          .map((value) => value.trim())
+          .filter(Boolean)
+      )
+    )
     const type = typeof body?.type === 'string' ? body.type.trim() : 'white-label'
     const showPassengerAds = typeof body?.showPassengerAds === 'boolean' ? body.showPassengerAds : false
+    const wlAppName = typeof body?.wlAppName === 'string' ? body.wlAppName.trim() : null
+    const wlAppPackage = typeof body?.wlAppPackage === 'string' ? body.wlAppPackage.trim() : null
+    const wlAppIcon = typeof body?.wlAppIcon === 'string' ? body.wlAppIcon.trim() : null
+    const wlSplashImage = typeof body?.wlSplashImage === 'string' ? body.wlSplashImage.trim() : null
     const rawFeatureSlugs = Array.isArray(body?.featureSlugs)
       ? (body.featureSlugs as unknown[])
       : []
@@ -125,9 +158,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (type === 'brand' && !cityId) {
+    const selectedCityIds = cityIds.length > 0 ? cityIds : cityId ? [cityId] : []
+
+    if (type === 'brand' && selectedCityIds.length === 0) {
       return NextResponse.json(
-        { error: 'Para centrais da nossa bandeira, informe a cidade.' },
+        { error: 'Para centrais da nossa bandeira, informe ao menos uma cidade.' },
         { status: 400 }
       )
     }
@@ -170,12 +205,12 @@ export async function POST(request: NextRequest) {
     }
 
     const tenant = await prisma.$transaction(async (tx) => {
-      if (cityId) {
-        const cityExists = await tx.city.findUnique({
-          where: { id: cityId },
+      if (selectedCityIds.length > 0) {
+        const existingCities = await tx.city.findMany({
+          where: { id: { in: selectedCityIds } },
           select: { id: true },
         })
-        if (!cityExists) {
+        if (existingCities.length !== selectedCityIds.length) {
           throw new Error('Cidade informada não existe.')
         }
       }
@@ -189,6 +224,13 @@ export async function POST(request: NextRequest) {
           logo: finalLogo,
           isActive: true,
           showPassengerAds,
+          type,
+          ...(type === 'white-label' ? {
+            wlAppName: wlAppName || null,
+            wlAppPackage: wlAppPackage || null,
+            wlAppIcon: wlAppIcon || null,
+            wlSplashImage: wlSplashImage || null,
+          } : {}),
         },
         select: {
           id: true,
@@ -198,16 +240,25 @@ export async function POST(request: NextRequest) {
           isActive: true,
           createdAt: true,
           showPassengerAds: true,
+          type: true,
+          wlAppName: true,
+          wlAppPackage: true,
+          wlAppIcon: true,
+          wlSplashImage: true,
+          wlPassengerApkUrl: true,
+          wlDriverApkUrl: true,
+          wlBuildStatus: true,
+          wlLastBuildAt: true,
         },
       })
 
-      if (cityId) {
-        await tx.tenantCity.create({
-          data: {
+      if (selectedCityIds.length > 0) {
+        await tx.tenantCity.createMany({
+          data: selectedCityIds.map((selectedCityId) => ({
             tenantId: createdTenant.id,
-            cityId,
+            cityId: selectedCityId,
             isActive: true,
-          },
+          })),
         })
       }
 
@@ -239,21 +290,23 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      const linkedCity = cityId
-        ? await tx.city.findUnique({
-            where: { id: cityId },
+      const linkedCities = selectedCityIds.length
+        ? await tx.city.findMany({
+            where: { id: { in: selectedCityIds } },
             select: {
               id: true,
               name: true,
               state: true,
             },
+            orderBy: [{ state: 'asc' }, { name: 'asc' }],
           })
-        : null
+        : []
 
       return {
         ...createdTenant,
         showPassengerAds: enablePassengerAds,
-        linkedCity: linkedCity ?? null,
+        linkedCities,
+        linkedCity: linkedCities[0] ?? null,
       }
     })
 

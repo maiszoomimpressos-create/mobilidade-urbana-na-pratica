@@ -38,8 +38,10 @@ export async function PATCH(
     const slugInput = typeof body?.slug === 'string' ? body.slug.trim() : ''
     const hasLogo = Object.prototype.hasOwnProperty.call(body ?? {}, 'logo')
     const logoInput = typeof body?.logo === 'string' ? body.logo.trim() : null
+    const hasWlFields = ['wlAppName', 'wlAppPackage', 'wlAppIcon', 'wlSplashImage', 'wlPassengerApkUrl', 'wlDriverApkUrl']
+      .some(field => Object.prototype.hasOwnProperty.call(body ?? {}, field))
 
-    if (!nameInput && !slugInput && !hasLogo) {
+    if (!nameInput && !slugInput && !hasLogo && !hasWlFields) {
       return NextResponse.json(
         { error: 'Nenhum campo para atualizar.' },
         { status: 400 }
@@ -75,12 +77,22 @@ export async function PATCH(
       }
     }
 
+    const wlData: Record<string, string | null> = {}
+    if (hasWlFields) {
+      for (const field of ['wlAppName', 'wlAppPackage', 'wlAppIcon', 'wlSplashImage', 'wlPassengerApkUrl', 'wlDriverApkUrl']) {
+        if (Object.prototype.hasOwnProperty.call(body, field)) {
+          wlData[field] = typeof body[field] === 'string' ? body[field].trim() || null : null
+        }
+      }
+    }
+
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
         ...(finalName ? { name: finalName } : {}),
         ...(finalSlug ? { slug: finalSlug } : {}),
         ...(hasLogo ? { logo: logoInput || null } : {}),
+        ...wlData,
       },
       select: { id: true },
     })
@@ -95,6 +107,15 @@ export async function PATCH(
         isActive: true,
         createdAt: true,
         showPassengerAds: true,
+        type: true,
+        wlAppName: true,
+        wlAppPackage: true,
+        wlAppIcon: true,
+        wlSplashImage: true,
+        wlPassengerApkUrl: true,
+        wlDriverApkUrl: true,
+        wlBuildStatus: true,
+        wlLastBuildAt: true,
         tenantCities: {
           where: { isActive: true },
           orderBy: { createdAt: 'desc' },
@@ -121,6 +142,15 @@ export async function PATCH(
         isActive: tenant?.isActive,
         createdAt: tenant?.createdAt,
         showPassengerAds: tenant?.showPassengerAds ?? false,
+        type: tenant?.type ?? 'brand',
+        wlAppName: tenant?.wlAppName,
+        wlAppPackage: tenant?.wlAppPackage,
+        wlAppIcon: tenant?.wlAppIcon,
+        wlSplashImage: tenant?.wlSplashImage,
+        wlPassengerApkUrl: tenant?.wlPassengerApkUrl,
+        wlDriverApkUrl: tenant?.wlDriverApkUrl,
+        wlBuildStatus: tenant?.wlBuildStatus ?? 'idle',
+        wlLastBuildAt: tenant?.wlLastBuildAt,
         linkedCity: tenant?.tenantCities?.[0]?.city ?? null,
       },
     })

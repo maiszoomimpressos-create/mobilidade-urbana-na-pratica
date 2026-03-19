@@ -15,8 +15,8 @@ export async function GET(_request: NextRequest) {
     }
 
     const { prisma } = await import('@/lib/prisma')
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: session.user.email, mode: 'insensitive' } },
       select: {
         id: true,
         email: true,
@@ -32,8 +32,6 @@ export async function GET(_request: NextRequest) {
                 name: true,
                 slug: true,
                 logo: true,
-                primaryColor: true,
-                secondaryColor: true,
                 mapUsageDashboardUrl: true,
               },
             },

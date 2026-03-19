@@ -26,14 +26,14 @@ export async function getSessionForServer(): Promise<SessionWithUser> {
 
     if (!supabaseSession?.user?.email) return null
 
-    const email = supabaseSession.user.email
+    const email = supabaseSession.user.email.toLowerCase()
     const name =
       (supabaseSession.user.user_metadata?.full_name as string) ||
       (supabaseSession.user.user_metadata?.name as string) ||
       null
 
-    let user = await prisma.user.findUnique({
-      where: { email },
+    let user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
       select: { id: true, email: true, name: true, image: true },
     })
 

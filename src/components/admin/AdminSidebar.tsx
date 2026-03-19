@@ -17,6 +17,7 @@ import {
   Store,
   Shield,
   Megaphone,
+  ClipboardCheck,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -35,6 +36,11 @@ const menuItems = [
     title: "Nova Central",
     href: "/admin/parceiros",
     icon: Building2,
+  },
+  {
+    title: "Aprovações",
+    href: "/admin/aprovacoes",
+    icon: ClipboardCheck,
   },
   {
     title: "Usuários",

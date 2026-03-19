@@ -62,10 +62,40 @@ export default function MapPreview({
         })
         mapRef.current = map
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        // Provider de tiles: em alguns ambientes, um host pode falhar. Fazemos fallback automático.
+        const tileUrls = [
+          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        ]
+
+        let tileIndex = 0
+        let tileLayer = L.tileLayer(tileUrls[tileIndex], {
           attribution: "© OpenStreetMap",
           maxZoom: 19,
         }).addTo(map)
+
+        const attachTileError = (layer: typeof tileLayer) => {
+          layer.on("tileerror", () => {
+            if (tileIndex < tileUrls.length - 1) {
+              tileIndex += 1
+              map.removeLayer(layer)
+              tileLayer = L.tileLayer(tileUrls[tileIndex], {
+                attribution: "© OpenStreetMap",
+                maxZoom: 19,
+              }).addTo(map)
+              attachTileError(tileLayer)
+            } else if (mounted) {
+              setError("Erro ao carregar mapa (tiles indisponíveis)")
+            }
+          })
+        }
+
+        attachTileError(tileLayer)
+
+        // Leaflet precisa recalcular o tamanho quando o container muda (ex.: modal/colapso).
+        setTimeout(() => {
+          map.invalidateSize()
+        }, 0)
 
         if (showMarker) {
           L.marker([lat, lng]).addTo(map)
@@ -105,7 +135,7 @@ export default function MapPreview({
       )}
       <div
         ref={containerRef}
-        className={`w-full rounded-lg border border-border overflow-hidden ${aspectSquare ? "h-full min-h-0" : ""}`}
+        className={`w-full rounded-lg border border-border overflow-hidden relative ${aspectSquare ? "h-full min-h-0" : ""}`}
         style={aspectSquare ? undefined : { height }}
       />
     </div>

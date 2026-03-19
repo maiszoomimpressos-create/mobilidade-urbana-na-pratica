@@ -5,23 +5,15 @@ import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Save, Trash2, Search, MapPin, Loader2 } from "lucide-react"
-import CitySearch from "@/components/admin/CitySearch"
+import CitySearch, { type City as CitySearchCity } from "@/components/admin/CitySearch"
 import MapEditorWrapper from "@/components/admin/MapEditorWrapper"
-
-interface City {
-  id: string
-  name: string
-  state: string
-  country: string
-  latitude: number
-  longitude: number
-}
+import { CityDataEditorCard, type CityDataForMap } from "@/components/admin/CityDataEditorCard"
 
 export default function MapearCidadePage() {
   const params = useParams()
   const router = useRouter()
   const cityId = params.id as string
-  const [city, setCity] = useState<City | null>(null)
+  const [city, setCity] = useState<CityDataForMap | null>(null)
   const [polygon, setPolygon] = useState<number[][]>([])
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
   const [mapZoom, setMapZoom] = useState(12)
@@ -43,6 +35,8 @@ export default function MapearCidadePage() {
             country: "BR",
             latitude: -23.5505,
             longitude: -46.6333,
+            ibgeCode: null,
+            isActive: true,
           })
           setMapCenter({
             lat: -23.5505,
@@ -59,6 +53,8 @@ export default function MapearCidadePage() {
           country: data.country,
           latitude: Number(data.latitude),
           longitude: Number(data.longitude),
+          ibgeCode: data.ibgeCode ?? null,
+          isActive: data.isActive ?? true,
         })
         setMapCenter({
           lat: Number(data.latitude),
@@ -80,6 +76,8 @@ export default function MapearCidadePage() {
           country: "BR",
           latitude: -23.5505,
           longitude: -46.6333,
+          ibgeCode: null,
+          isActive: true,
         })
         setMapCenter({
           lat: -23.5505,
@@ -99,8 +97,12 @@ export default function MapearCidadePage() {
     }
   }, [cityId])
 
-  const handleCitySelect = (selectedCity: City) => {
-    setCity(selectedCity)
+  const handleCitySelect = (selectedCity: CitySearchCity) => {
+    setCity({
+      ...selectedCity,
+      ibgeCode: null,
+      isActive: true,
+    })
     setMapCenter({
       lat: selectedCity.latitude,
       lng: selectedCity.longitude,
@@ -218,7 +220,7 @@ export default function MapearCidadePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Map Editor */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-6">
           <Card className="border-border">
             <CardHeader>
               <CardTitle>Editor de Mapa</CardTitle>
@@ -245,64 +247,81 @@ export default function MapearCidadePage() {
               )}
             </CardContent>
           </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="border-border h-full">
+              <CardHeader>
+                <CardTitle className="text-lg">Instruções</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                  <p>Clique no mapa para adicionar pontos ao polígono</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                  <p>Clique no último ponto para fechar o polígono</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                  <p>Arraste os pontos para ajustar a área</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                  <p>Mínimo de 3 pontos para formar um polígono</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                  <p>Use &quot;Carregar limite (IBGE)&quot; para preencher com o limite oficial do município</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border h-full">
+              <CardHeader>
+                <CardTitle className="text-lg">Estatísticas</CardTitle>
+                <CardDescription className="text-xs leading-relaxed">
+                  <strong>Pontos</strong> é o número de vértices do polígono no mapa (cada clique no mapa acrescenta um
+                  vértice ao desenho).
+                  <br />
+                  <strong>Status</strong> “Válido” significa que há pelo menos 3 pontos — o mínimo para formar um
+                  polígono fechado e poder usar <strong>Salvar Área</strong>. Não indica se o desenho bate com o limite
+                  oficial; só se o desenho está pronto para gravar.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Pontos:</span>
+                  <span className="font-medium text-foreground">{polygon.length}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className="font-medium text-foreground">
+                    {polygon.length >= 3 ? (
+                      <span className="text-primary">Válido</span>
+                    ) : (
+                      <span className="text-muted-foreground">Incompleto</span>
+                    )}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
-        {/* Instructions and Actions */}
+        {/* Dados da cidade e ações */}
         <div className="space-y-6">
-          {/* Instructions */}
-          <Card className="border-border">
-            <CardHeader>
-              <CardTitle className="text-lg">Instruções</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <div className="flex items-start gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                <p>Clique no mapa para adicionar pontos ao polígono</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                <p>Clique no último ponto para fechar o polígono</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                <p>Arraste os pontos para ajustar a área</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                <p>Mínimo de 3 pontos para formar um polígono</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                <p>Use &quot;Carregar limite (IBGE)&quot; para preencher com o limite oficial do município</p>
-              </div>
-            </CardContent>
-          </Card>
+          <CityDataEditorCard
+            cityId={cityId}
+            city={city}
+            onSaved={(updated) => {
+              setCity(updated)
+              setMapCenter({ lat: updated.latitude, lng: updated.longitude })
+            }}
+          />
 
-          {/* Stats */}
-          <Card className="border-border">
-            <CardHeader>
-              <CardTitle className="text-lg">Estatísticas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Pontos:</span>
-                <span className="font-medium text-foreground">{polygon.length}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Status:</span>
-                <span className="font-medium text-foreground">
-                  {polygon.length >= 3 ? (
-                    <span className="text-primary">Válido</span>
-                  ) : (
-                    <span className="text-muted-foreground">Incompleto</span>
-                  )}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Actions */}
-          <div className="space-y-2">
+          {/* Ações — separadas dos dados para dar respiro visual */}
+          <div className="space-y-2 pt-6 mt-2 border-t border-border">
             <Button
               variant="outline"
               className="w-full"

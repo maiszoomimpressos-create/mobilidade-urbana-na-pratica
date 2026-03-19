@@ -49,7 +49,18 @@ export default function RegisterScreen() {
     setLoading(false)
 
     if (error) {
-      Alert.alert('Erro', error.message || 'Erro ao criar conta')
+      const isAlreadyRegistered =
+        error.message?.toLowerCase().includes('already registered') ||
+        error.message?.toLowerCase().includes('já registrado')
+      if (isAlreadyRegistered) {
+        Alert.alert(
+          'Conta existente',
+          'Este e-mail já está cadastrado. Faça login para adicionar seu perfil de motorista.',
+          [{ text: 'Entrar', onPress: () => router.replace('/(auth)/login') }]
+        )
+      } else {
+        Alert.alert('Erro', error.message || 'Erro ao criar conta')
+      }
     } else {
       Alert.alert(
         'Sucesso',

@@ -34,8 +34,7 @@ async function buildPayload(tenantId: string) {
         showPassengerAds: true,
         tenantCities: {
           where: { isActive: true },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
+          orderBy: [{ createdAt: 'desc' }],
           select: {
             city: {
               select: {
@@ -82,6 +81,10 @@ async function buildPayload(tenantId: string) {
       id: tenant.id,
       name: tenant.name,
       slug: tenant.slug,
+      linkedCities: tenant.tenantCities
+        .map((item) => item.city)
+        .filter((city): city is { id: string; name: string; state: string } => Boolean(city)),
+      // Compatibilidade com frontend legado (cidade única).
       linkedCity: tenant.tenantCities?.[0]?.city ?? null,
     },
     features: features.map((feature) => ({
@@ -127,6 +130,7 @@ export async function GET(
  * Atualiza cidade vinculada e funcionalidades da central.
  * body:
  * - cityId?: string | null
+ * - cityIds?: string[]
  * - featureSlugs?: string[]
  */
 export async function PATCH(
@@ -141,9 +145,10 @@ export async function PATCH(
     const tenantId = params.id
     const body = await request.json()
     const hasCityId = Object.prototype.hasOwnProperty.call(body ?? {}, 'cityId')
+    const hasCityIds = Array.isArray(body?.cityIds)
     const hasFeatureSlugs = Array.isArray(body?.featureSlugs)
 
-    if (!hasCityId && !hasFeatureSlugs) {
+    if (!hasCityId && !hasCityIds && !hasFeatureSlugs) {
       return NextResponse.json(
         { error: 'Nenhum campo para atualizar.' },
         { status: 400 }
@@ -161,14 +166,31 @@ export async function PATCH(
     await ensurePassengerAdsFeature()
 
     await prisma.$transaction(async (tx) => {
-      if (hasCityId) {
-        const cityId = typeof body?.cityId === 'string' && body.cityId.trim() ? body.cityId.trim() : null
-        if (cityId) {
-          const cityExists = await tx.city.findUnique({
-            where: { id: cityId },
+      if (hasCityId || hasCityIds) {
+        const normalizedCityIds = hasCityIds
+          ? Array.from(
+              new Set(
+                (body.cityIds as unknown[])
+                  .filter((value): value is string => typeof value === 'string')
+                  .map((value) => value.trim())
+                  .filter(Boolean)
+              )
+            )
+          : []
+        const singleCityId =
+          typeof body?.cityId === 'string' && body.cityId.trim() ? body.cityId.trim() : null
+        const cityIds = hasCityIds
+          ? normalizedCityIds
+          : singleCityId
+          ? [singleCityId]
+          : []
+
+        if (cityIds.length > 0) {
+          const existingCities = await tx.city.findMany({
+            where: { id: { in: cityIds } },
             select: { id: true },
           })
-          if (!cityExists) {
+          if (existingCities.length !== cityIds.length) {
             throw new Error('CITY_NOT_FOUND')
           }
         }
@@ -176,13 +198,13 @@ export async function PATCH(
         await tx.tenantCity.deleteMany({
           where: { tenantId },
         })
-        if (cityId) {
-          await tx.tenantCity.create({
-            data: {
+        if (cityIds.length > 0) {
+          await tx.tenantCity.createMany({
+            data: cityIds.map((cityId) => ({
               tenantId,
               cityId,
               isActive: true,
-            },
+            })),
           })
         }
       }

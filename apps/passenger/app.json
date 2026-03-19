@@ -41,6 +41,21 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/8e394766-0511-4175-b696-9690642cd986",
+      "fallbackToCacheTimeout": 3000,
+      "checkAutomatically": "ON_LOAD"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8e394766-0511-4175-b696-9690642cd986"
+      }
+    },
+    "owner": "maiszoom"
   }
 }

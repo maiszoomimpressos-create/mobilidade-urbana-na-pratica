@@ -15,6 +15,16 @@ type TenantItem = {
   isActive: boolean
   createdAt: string
   showPassengerAds: boolean
+  type: string
+  wlAppName: string | null
+  wlAppPackage: string | null
+  wlAppIcon: string | null
+  wlSplashImage: string | null
+  wlPassengerApkUrl: string | null
+  wlDriverApkUrl: string | null
+  wlBuildStatus: string
+  wlLastBuildAt: string | null
+  linkedCities?: { id: string; name: string; state: string }[]
   linkedCity: { id: string; name: string; state: string } | null
 }
 
@@ -58,8 +68,14 @@ export default function ParceirosPage() {
   const [slug, setSlug] = useState("")
   const [logo, setLogo] = useState("")
   const [createCityId, setCreateCityId] = useState("")
+  const [createCityIds, setCreateCityIds] = useState<string[]>([])
   const [createShowPassengerAds, setCreateShowPassengerAds] = useState(false)
-  const [selectedCityId, setSelectedCityId] = useState("")
+  const [wlAppName, setWlAppName] = useState("")
+  const [wlAppPackage, setWlAppPackage] = useState("")
+  const [wlAppIcon, setWlAppIcon] = useState("")
+  const [wlSplashImage, setWlSplashImage] = useState("")
+  const [triggeringBuild, setTriggeringBuild] = useState(false)
+  const [selectedCityIds, setSelectedCityIds] = useState<string[]>([])
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([])
   const [availableFeatures, setAvailableFeatures] = useState<FeatureOption[]>([])
   const [searchTenantConfig, setSearchTenantConfig] = useState("")
@@ -119,11 +135,17 @@ export default function ParceirosPage() {
       }
       const features: FeatureOption[] = data?.features ?? []
       const enabled = features.filter((feature) => feature.enabled).map((feature) => feature.slug)
-      const cityId = data?.tenant?.linkedCity?.id ?? ""
+      const cityIds: string[] = Array.isArray(data?.tenant?.linkedCities)
+        ? data.tenant.linkedCities
+            .map((city: { id?: string }) => city?.id)
+            .filter((cityId: unknown): cityId is string => typeof cityId === "string")
+        : data?.tenant?.linkedCity?.id
+          ? [data.tenant.linkedCity.id]
+          : []
 
       setAvailableFeatures(features)
       setSelectedFeatures(enabled)
-      setSelectedCityId(cityId)
+      setSelectedCityIds(cityIds)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao carregar configuração da central.")
     } finally {
@@ -152,8 +174,8 @@ export default function ParceirosPage() {
       if (!name.trim()) {
         throw new Error("Informe o nome da central.")
       }
-      if (type === "brand" && !createCityId) {
-        throw new Error("Selecione a cidade para a central da nossa bandeira.")
+      if (type === "brand" && createCityIds.length === 0) {
+        throw new Error("Selecione ao menos uma cidade para a central da nossa bandeira.")
       }
 
       const body = {
@@ -162,8 +184,15 @@ export default function ParceirosPage() {
         slug: slugify(slug || name),
         logo: logo.trim() || null,
         cityId: createCityId || null,
+        cityIds: createCityIds,
         showPassengerAds: createShowPassengerAds,
         featureSlugs: createShowPassengerAds ? ["passenger_advertising"] : [],
+        ...(type === "white-label" ? {
+          wlAppName: wlAppName.trim() || null,
+          wlAppPackage: wlAppPackage.trim() || null,
+          wlAppIcon: wlAppIcon.trim() || null,
+          wlSplashImage: wlSplashImage.trim() || null,
+        } : {}),
       }
 
       const res = await fetch("/api/admin/tenants", {
@@ -181,7 +210,12 @@ export default function ParceirosPage() {
       setSlug("")
       setLogo("")
       setCreateCityId("")
+      setCreateCityIds([])
       setCreateShowPassengerAds(false)
+      setWlAppName("")
+      setWlAppPackage("")
+      setWlAppIcon("")
+      setWlSplashImage("")
       await loadData()
 
       const createdTenantId = typeof data?.tenant?.id === "string" ? data.tenant.id : ""
@@ -208,7 +242,7 @@ export default function ParceirosPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cityId: selectedCityId || null,
+          cityIds: selectedCityIds,
         }),
       })
       const data = await res.json().catch(() => null)
@@ -216,13 +250,18 @@ export default function ParceirosPage() {
         throw new Error(data?.error ?? "Erro ao vincular cidade.")
       }
 
-      const linkedCity = data?.tenant?.linkedCity ?? null
+      const linkedCities = Array.isArray(data?.tenant?.linkedCities)
+        ? data.tenant.linkedCities
+        : data?.tenant?.linkedCity
+          ? [data.tenant.linkedCity]
+          : []
+      const linkedCity = linkedCities[0] ?? null
       setTenants((prev) =>
         prev.map((tenant) =>
-          tenant.id === selectedTenantId ? { ...tenant, linkedCity } : tenant
+          tenant.id === selectedTenantId ? { ...tenant, linkedCity, linkedCities } : tenant
         )
       )
-      setSuccess("Cidade vinculada com sucesso.")
+      setSuccess("Cidades da central atualizadas com sucesso.")
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao vincular cidade.")
     } finally {
@@ -327,7 +366,7 @@ export default function ParceirosPage() {
       setSearchTenantConfig("")
       setAvailableFeatures([])
       setSelectedFeatures([])
-      setSelectedCityId("")
+      setSelectedCityIds([])
       setEditName("")
       setEditSlug("")
       setEditLogo("")
@@ -457,26 +496,29 @@ export default function ParceirosPage() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="tenantCity">Cidade da central</Label>
+            <Label htmlFor="tenantCity">Cidade principal da central</Label>
             <select
               id="tenantCity"
               value={createCityId}
-                onChange={(e) => {
-                  const cityId = e.target.value
-                  setCreateCityId(cityId)
-                  const city = cities.find((c) => c.id === cityId)
-                  if (city && type === "brand") {
-                    const autoName = `Mai Drive ${city.name}`
-                    setName(autoName)
-                    setSlug(slugify(autoName))
-                  } else if (city && !name.trim()) {
-                    setName(city.name)
-                    setSlug(slugify(city.name))
-                  }
-                }}
+              onChange={(e) => {
+                const cityId = e.target.value
+                setCreateCityId(cityId)
+                if (cityId && !createCityIds.includes(cityId)) {
+                  setCreateCityIds((prev) => [...prev, cityId])
+                }
+                const city = cities.find((c) => c.id === cityId)
+                if (city && type === "brand") {
+                  const autoName = `Mai Drive ${city.name}`
+                  setName(autoName)
+                  setSlug(slugify(autoName))
+                } else if (city && !name.trim()) {
+                  setName(city.name)
+                  setSlug(slugify(city.name))
+                }
+              }}
               className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
             >
-              <option value="">Selecione uma cidade</option>
+              <option value="">Selecione uma cidade principal</option>
               {cities.map((city) => (
                 <option key={city.id} value={city.id}>
                   {city.name} - {city.state}
@@ -485,6 +527,40 @@ export default function ParceirosPage() {
             </select>
             <p className="text-xs text-muted-foreground">
               Ao selecionar a cidade, o nome será preenchido automaticamente. Você pode editá-lo depois.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Cidades de atuação (multi-cidade)</Label>
+            <div className="max-h-56 overflow-auto rounded-md border border-input p-2 space-y-2">
+              {cities.map((city) => {
+                const checked = createCityIds.includes(city.id)
+                return (
+                  <label key={city.id} className="flex items-center justify-between gap-3 rounded px-2 py-1 text-sm hover:bg-muted/40">
+                    <span>{city.name} - {city.state}</span>
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(value) => {
+                        const enabled = value === true
+                        setCreateCityIds((prev) => {
+                          if (enabled && !prev.includes(city.id)) return [...prev, city.id]
+                          if (!enabled && prev.includes(city.id)) {
+                            const next = prev.filter((id) => id !== city.id)
+                            if (createCityId === city.id) {
+                              setCreateCityId(next[0] ?? "")
+                            }
+                            return next
+                          }
+                          return prev
+                        })
+                      }}
+                    />
+                  </label>
+                )
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Se nenhuma cidade for marcada, a central ficará sem vínculo de atuação.
             </p>
           </div>
 
@@ -530,6 +606,57 @@ export default function ParceirosPage() {
                 : "Você pode enviar um arquivo. A imagem será convertida para WebP e a URL será preenchida."}
             </p>
           </div>
+
+          {type === "white-label" && (
+            <div className="space-y-4 rounded-md border border-orange-300 bg-orange-50 p-4">
+              <p className="text-sm font-semibold text-orange-800">
+                Configuração do App White-label
+              </p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="wlAppName">Nome do app no celular</Label>
+                  <Input
+                    id="wlAppName"
+                    placeholder="Ex.: TransPorto"
+                    value={wlAppName}
+                    onChange={(e) => setWlAppName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="wlAppPackage">Package Android</Label>
+                  <Input
+                    id="wlAppPackage"
+                    placeholder="Ex.: com.transporto.app"
+                    value={wlAppPackage}
+                    onChange={(e) => setWlAppPackage(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Identificador único no Google Play (não pode ser alterado depois).
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="wlAppIcon">Ícone do app (URL 512x512)</Label>
+                  <Input
+                    id="wlAppIcon"
+                    placeholder="https://..."
+                    value={wlAppIcon}
+                    onChange={(e) => setWlAppIcon(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="wlSplashImage">Splash screen (URL)</Label>
+                  <Input
+                    id="wlSplashImage"
+                    placeholder="https://..."
+                    value={wlSplashImage}
+                    onChange={(e) => setWlSplashImage(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Função da central</Label>
@@ -675,27 +802,159 @@ export default function ParceirosPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="selectedTenantCity">Cidade de atuação da central</Label>
-              <div className="grid gap-3 md:grid-cols-[1fr_auto] items-end">
-                <select
-                  id="selectedTenantCity"
-                  value={selectedCityId}
-                  onChange={(e) => setSelectedCityId(e.target.value)}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                  disabled={savingConfig}
-                >
-                  <option value="">Sem cidade vinculada</option>
-                  {cities.map((city) => (
-                    <option key={city.id} value={city.id}>
-                      {city.name} - {city.state}
-                    </option>
-                  ))}
-                </select>
+              <Label>Cidades de atuação da central</Label>
+              <div className="grid gap-3 md:grid-cols-[1fr_auto] items-start">
+                <div className="max-h-60 overflow-auto rounded-md border border-input p-2 space-y-2">
+                  {cities.map((city) => {
+                    const checked = selectedCityIds.includes(city.id)
+                    return (
+                      <label key={city.id} className="flex items-center justify-between gap-3 rounded px-2 py-1 text-sm hover:bg-muted/40">
+                        <span>{city.name} - {city.state}</span>
+                        <Checkbox
+                          checked={checked}
+                          disabled={savingConfig}
+                          onCheckedChange={(value) => {
+                            const enabled = value === true
+                            setSelectedCityIds((prev) => {
+                              if (enabled && !prev.includes(city.id)) return [...prev, city.id]
+                              if (!enabled && prev.includes(city.id)) return prev.filter((id) => id !== city.id)
+                              return prev
+                            })
+                          }}
+                        />
+                      </label>
+                    )
+                  })}
+                </div>
                 <Button disabled={savingConfig} onClick={saveSelectedTenantCity}>
-                  {savingConfig ? "Salvando..." : "Salvar cidade"}
+                  {savingConfig ? "Salvando..." : "Salvar cidades"}
                 </Button>
               </div>
             </div>
+
+            {selectedTenant.type === "white-label" && (
+              <div className="space-y-4 rounded-md border border-orange-300 bg-orange-50 p-4">
+                <p className="text-sm font-semibold text-orange-800">
+                  App White-label
+                </p>
+                <div className="grid gap-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Nome do app:</span>
+                    <span className="font-medium">{selectedTenant.wlAppName || "Não configurado"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Package:</span>
+                    <span className="font-medium font-mono text-xs">{selectedTenant.wlAppPackage || "Não configurado"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Status do build:</span>
+                    <span className={`font-medium ${
+                      selectedTenant.wlBuildStatus === "success" ? "text-green-600" :
+                      selectedTenant.wlBuildStatus === "building" ? "text-yellow-600" :
+                      selectedTenant.wlBuildStatus === "error" ? "text-red-600" :
+                      "text-muted-foreground"
+                    }`}>
+                      {selectedTenant.wlBuildStatus === "idle" && "Aguardando"}
+                      {selectedTenant.wlBuildStatus === "building" && "Gerando build..."}
+                      {selectedTenant.wlBuildStatus === "success" && "Build pronto"}
+                      {selectedTenant.wlBuildStatus === "error" && "Erro no build"}
+                    </span>
+                  </div>
+                  {selectedTenant.wlLastBuildAt && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Último build:</span>
+                      <span className="font-medium">{new Date(selectedTenant.wlLastBuildAt).toLocaleString("pt-BR")}</span>
+                    </div>
+                  )}
+                </div>
+
+                {selectedTenant.wlPassengerApkUrl && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Link APK Passageiro</Label>
+                    <div className="flex gap-2">
+                      <Input value={selectedTenant.wlPassengerApkUrl} readOnly className="text-xs" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigator.clipboard.writeText(selectedTenant.wlPassengerApkUrl!)}
+                      >
+                        Copiar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {selectedTenant.wlDriverApkUrl && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Link APK Motorista</Label>
+                    <div className="flex gap-2">
+                      <Input value={selectedTenant.wlDriverApkUrl} readOnly className="text-xs" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigator.clipboard.writeText(selectedTenant.wlDriverApkUrl!)}
+                      >
+                        Copiar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    disabled={triggeringBuild || selectedTenant.wlBuildStatus === "building" || !selectedTenant.wlAppName || !selectedTenant.wlAppPackage}
+                    onClick={async () => {
+                      setTriggeringBuild(true)
+                      setError(null)
+                      setSuccess(null)
+                      try {
+                        const res = await fetch(`/api/admin/tenants/${selectedTenantId}/build`, {
+                          method: "POST",
+                        })
+                        const data = await res.json().catch(() => null)
+                        if (!res.ok) throw new Error(data?.error ?? "Erro ao iniciar build.")
+                        setSuccess(data?.message ?? "Build iniciado! Acompanhe o status.")
+                        setTenants((prev) =>
+                          prev.map((t) => t.id === selectedTenantId ? { ...t, wlBuildStatus: "building" } : t)
+                        )
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : "Erro ao iniciar build.")
+                      } finally {
+                        setTriggeringBuild(false)
+                      }
+                    }}
+                  >
+                    {triggeringBuild ? "Iniciando..." : "Gerar Build White-label"}
+                  </Button>
+                  {selectedTenant.wlPassengerApkUrl && (
+                    <Button variant="outline" asChild>
+                      <a href={selectedTenant.wlPassengerApkUrl} target="_blank" rel="noopener noreferrer">
+                        Baixar Passageiro
+                      </a>
+                    </Button>
+                  )}
+                  {selectedTenant.wlDriverApkUrl && (
+                    <Button variant="outline" asChild>
+                      <a href={selectedTenant.wlDriverApkUrl} target="_blank" rel="noopener noreferrer">
+                        Baixar Motorista
+                      </a>
+                    </Button>
+                  )}
+                </div>
+                {(!selectedTenant.wlAppName || !selectedTenant.wlAppPackage) && (
+                  <p className="text-xs text-red-600">
+                    Configure o nome e package do app para poder gerar o build.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {selectedTenant.type === "brand" && (
+              <div className="rounded-md border border-blue-300 bg-blue-50 p-3 text-sm text-blue-800">
+                Central <strong>Nossa Bandeira</strong> — usa o app Mai Drive padrão.
+                Link de download: <a href={`/baixar?tenant=${selectedTenant.slug}`} className="underline font-medium" target="_blank" rel="noopener noreferrer">/baixar?tenant={selectedTenant.slug}</a>
+              </div>
+            )}
 
             <div className="space-y-3">
               <Label>Funcionalidades da central</Label>

@@ -1,4 +1,7 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://mobilidade-urbana-na-pratica.vercel.app'
+import { getApiBaseUrl } from '@/lib/apiBaseUrl'
+
+/** Base URL já ajustada para emulador Android (localhost → 10.0.2.2 em __DEV__). */
+export const API_URL = getApiBaseUrl()
 
 export async function apiRequest<T>(
   endpoint: string,

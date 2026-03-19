@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import { useAuth } from './AuthContext'
+import { API_URL } from '@/lib/api'
 
 interface DriverStatusContextType {
   isOnline: boolean
@@ -20,7 +21,6 @@ export function DriverStatusProvider({ children }: { children: React.ReactNode }
 
     setIsUpdating(true)
     try {
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || ''
       const response = await fetch(`${API_URL}/api/app/driver/status`, {
         method: 'PATCH',
         headers: {

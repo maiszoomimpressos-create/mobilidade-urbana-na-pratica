@@ -99,12 +99,14 @@ const Header = () => {
                     <DropdownMenuSeparator />
                   </>
                 )}
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard" className="cursor-pointer gap-2 flex items-center">
-                    <LayoutDashboard className="h-4 w-4" />
-                    Ser Parceiro / Minha Marca
-                  </Link>
-                </DropdownMenuItem>
+                {!isMasterAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/painel" className="cursor-pointer gap-2 flex items-center">
+                      <LayoutDashboard className="h-4 w-4" />
+                      Dashboard da central
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={async () => {
@@ -165,10 +167,12 @@ const Header = () => {
                 <p className="text-hero-foreground/70 text-sm py-2">
                   Logado como <span className="font-medium text-hero-foreground">{displayName}</span>
                 </p>
-                <Link href="/dashboard" className="text-hero-foreground/80 hover:text-primary transition-colors font-medium py-2 flex items-center gap-2">
-                  <LayoutDashboard className="h-4 w-4" />
-                  Ser Parceiro / Minha Marca
-                </Link>
+                {!isMasterAdmin && (
+                  <Link href="/painel" className="text-hero-foreground/80 hover:text-primary transition-colors font-medium py-2 flex items-center gap-2">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard da central
+                  </Link>
+                )}
                 {isMasterAdmin && (
                   <Link href="/admin" className="text-hero-foreground/80 hover:text-primary transition-colors font-medium py-2 flex items-center gap-2">
                     <LayoutDashboard className="h-4 w-4" />

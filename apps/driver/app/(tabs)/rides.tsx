@@ -12,6 +12,7 @@ import { useColorScheme } from 'react-native'
 import { Colors } from '@/constants/Colors'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDriverStatus } from '@/contexts/DriverStatusContext'
+import { API_URL } from '@/lib/api'
 
 interface RideRequest {
   id: string
@@ -41,7 +42,6 @@ export default function RidesScreen() {
     }
 
     try {
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || ''
       const response = await fetch(`${API_URL}/api/app/driver/rides/available`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -80,7 +80,6 @@ export default function RidesScreen() {
     if (!session?.access_token) return
 
     try {
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || ''
       const response = await fetch(`${API_URL}/api/app/driver/rides/${rideId}/accept`, {
         method: 'POST',
         headers: {

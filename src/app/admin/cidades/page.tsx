@@ -1,10 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { MapPin, Edit, Plus, Search, Loader2, MapPinned, KeyRound } from "lucide-react"
+import { MapPin, Edit, Plus, Search, Loader2, MapPinned, KeyRound, Copy, Check } from "lucide-react"
 import Link from "next/link"
 import CitySearch, { type City as CitySearchCity, type GeoCity } from "@/components/admin/CitySearch"
 import MapPreview from "@/components/admin/MapPreview"
@@ -42,8 +41,38 @@ interface RegiaoImediata {
   name?: string
 }
 
+/** URL estável para o editor de cobertura (evita depender só do client router). */
+function cityEditorHref(cityId: string) {
+  return `/admin/cidades/${encodeURIComponent(cityId)}/mapear`
+}
+
+function CityIdCopy({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1.5 max-w-full rounded border border-border bg-muted/40 px-2 py-1 text-left text-xs hover:bg-muted/70"
+      title="Copiar ID da cidade"
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        void navigator.clipboard.writeText(id).then(() => {
+          setCopied(true)
+          setTimeout(() => setCopied(false), 1600)
+        })
+      }}
+    >
+      <span className="font-mono text-[10px] text-muted-foreground truncate shrink min-w-0">{id}</span>
+      {copied ? (
+        <Check className="w-3 h-3 text-green-600 shrink-0" />
+      ) : (
+        <Copy className="w-3 h-3 text-muted-foreground shrink-0" />
+      )}
+    </button>
+  )
+}
+
 export default function CidadesPage() {
-  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
   /** Estado selecionado para carregar regiões (dropdown de filtro) */
   const [stateForRegions, setStateForRegions] = useState<string | null>(null)
@@ -197,7 +226,7 @@ export default function CidadesPage() {
 
   const handleCitySelect = (city: CitySearchCity) => {
     setPreviewGeo(null)
-    router.push(`/admin/cidades/${city.id}/mapear`)
+    window.location.assign(cityEditorHref(city.id))
   }
 
   const handleGoogleSuggestionPreview = (geo: GeoCity) => {
@@ -264,7 +293,7 @@ export default function CidadesPage() {
             )
             if (existing) {
               setPreviewGeo(null)
-              router.push(`/admin/cidades/${existing.id}/mapear`)
+              window.location.assign(cityEditorHref(existing.id))
               return
             }
           }
@@ -273,7 +302,7 @@ export default function CidadesPage() {
       }
       const created: City = await res.json()
       setPreviewGeo(null)
-      router.push(`/admin/cidades/${created.id}/mapear`)
+      window.location.assign(cityEditorHref(created.id))
     } catch (e) {
       console.error("Erro ao criar cidade:", e)
       alert(e instanceof Error ? e.message : "Erro ao criar cidade")
@@ -400,16 +429,19 @@ export default function CidadesPage() {
             ) : (
               <ul className="space-y-1 max-h-48 overflow-auto">
                 {dbSearchCities.map((city) => (
-                  <li key={city.id}>
-                    <Link
-                      href={`/admin/cidades/${city.id}/mapear`}
-                      className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-muted text-sm"
+                  <li key={city.id} className="rounded-md text-sm space-y-1.5">
+                    <a
+                      href={cityEditorHref(city.id)}
+                      className="flex items-center gap-2 min-w-0 rounded-md px-2 py-2 hover:bg-muted"
                     >
                       <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
-                      <span className="font-medium">{city.name}</span>
-                      <span className="text-muted-foreground">{city.state}, {city.country}</span>
-                      <Edit className="w-3 h-3 ml-auto text-muted-foreground" />
-                    </Link>
+                      <span className="font-medium truncate">{city.name}</span>
+                      <span className="text-muted-foreground shrink-0">{city.state}, {city.country}</span>
+                      <Edit className="w-3 h-3 ml-auto text-muted-foreground flex-shrink-0" aria-hidden />
+                    </a>
+                    <div className="pl-6">
+                      <CityIdCopy id={city.id} />
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -622,15 +654,18 @@ export default function CidadesPage() {
                       </div>
                       <ul className="space-y-0.5 pl-2 border-l border-border">
                         {cities.map((city) => (
-                          <li key={city.id}>
-                            <Link
-                              href={`/admin/cidades/${city.id}/mapear`}
-                              className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-primary/10 text-sm group"
+                          <li key={city.id} className="space-y-1 text-sm">
+                            <a
+                              href={cityEditorHref(city.id)}
+                              className="flex items-center gap-2 min-w-0 rounded-md px-2 py-1.5 hover:bg-primary/10"
                             >
                               <MapPin className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                               <span className="font-medium truncate">{city.name}</span>
-                              <Edit className="w-3 h-3 ml-auto text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </Link>
+                              <Edit className="w-3 h-3 ml-auto text-muted-foreground flex-shrink-0" aria-hidden />
+                            </a>
+                            <div className="pl-5">
+                              <CityIdCopy id={city.id} />
+                            </div>
                           </li>
                         ))}
                       </ul>
@@ -669,17 +704,26 @@ export default function CidadesPage() {
             otherFilteredByRegion.map((city) => (
               <Card
                 key={city.id}
-                className="border-border hover:border-primary/30 transition-all hover:shadow-lg"
+                className="relative overflow-hidden  border-border hover:border-primary/30 transition-all hover:shadow-lg"
               >
-                <CardHeader>
-                  <div className="flex items-start justify-between">
+                <a
+                  href={cityEditorHref(city.id)}
+                  className="absolute inset-0 z-0"
+                  aria-label={`Abrir editor da cidade ${city.name}`}
+                />
+                <CardHeader className="relative z-10 pointer-events-none">
+                  <div className="flex items-start justify-between gap-2">
                     <div>
                       <CardTitle className="text-xl font-display">{city.name}</CardTitle>
                       <CardDescription className="mt-1">
                         {city.state}, {city.country}
                       </CardDescription>
+                      <div className="mt-2 pointer-events-auto">
+                        <p className="text-xs text-muted-foreground mb-1">ID no banco</p>
+                        <CityIdCopy id={city.id} />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 shrink-0">
                       {city.isActive ? (
                         <span className="px-2 py-1 text-xs font-medium rounded-full bg-primary/10 text-primary">
                           Ativa
@@ -689,10 +733,21 @@ export default function CidadesPage() {
                           Inativa
                         </span>
                       )}
+                      <span className="pointer-events-auto">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" asChild>
+                          <a
+                            href={cityEditorHref(city.id)}
+                            aria-label={`Editar cidade: ${city.name}`}
+                            title="Editar cobertura e dados no mapa"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      </span>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="relative z-10 pointer-events-none">
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MapPin className="w-4 h-4" />
@@ -706,15 +761,17 @@ export default function CidadesPage() {
                         Área não mapeada
                       </span>
                     </div>
-                    <div className="flex gap-2 pt-2">
-                      <Link href={`/admin/cidades/${city.id}/mapear`} className="flex-1">
-                        <Button variant="outline" size="sm" className="w-full">
+                    <div className="pointer-events-auto flex gap-2 pt-2 relative z-20">
+                      <Button variant="outline" size="sm" className="flex-1" asChild>
+                        <a href={cityEditorHref(city.id)}>
                           <Edit className="w-4 h-4 mr-2" />
                           Mapear área
-                        </Button>
-                      </Link>
-                      <Button variant="ghost" size="sm">
-                        Configurar
+                        </a>
+                      </Button>
+                      <Button variant="ghost" size="sm" asChild>
+                        <a href={cityEditorHref(city.id)} title="Abre o mesmo editor de cobertura">
+                          Configurar
+                        </a>
                       </Button>
                     </div>
                   </div>

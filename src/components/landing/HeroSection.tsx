@@ -16,7 +16,7 @@ const HeroSection = () => {
   }
 
   const goToCards = () => {
-    router.push('/dashboard')
+    router.push('/planos')
   }
 
   return (

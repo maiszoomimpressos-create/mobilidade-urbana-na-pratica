@@ -322,3 +322,40 @@ Use este arquivo para sabermos exatamente **onde paramos** e **qual é o próxim
   - Instalar dependências (`npm install` na pasta driver)
   - Testar o app
 
+---
+
+### 2026-03-19 — Multi-cidade em centrais + cadastro por cityId
+
+- **Objetivo**: eliminar ambiguidade de cidade por nome/UF e consolidar vínculo por ID para suportar cenário multi-tenant com múltiplas cidades por central.
+- **Implementado (backend)**:
+  - `PATCH /api/admin/tenants/[id]/capabilities` agora aceita `cityIds: string[]` (com compatibilidade para `cityId` legado).
+  - `GET /api/admin/tenants/[id]/capabilities` passou a retornar `tenant.linkedCities` (mantendo `linkedCity` para compatibilidade).
+  - `POST /api/admin/tenants` passou a aceitar `cityIds` no cadastro da central.
+  - `GET /api/admin/tenants` passou a retornar `linkedCities` além de `linkedCity`.
+  - `POST /api/partner/register` agora aceita `cityId` (fallback para `cityName/cityState` mantido temporariamente).
+  - `POST /api/partner/tenant/cities/add` agora aceita `cityId` (fallback para `cityName/cityState` mantido).
+  - Nova API `GET /api/partner/cities/options?q=` para seleção de cidade no cadastro público do parceiro.
+- **Implementado (frontend)**:
+  - `admin/parceiros` atualizado para seleção e salvamento de **múltiplas cidades** por central.
+  - Cadastro de central no admin agora envia `cityIds`.
+  - Página pública `/parceiro` passou a selecionar cidade por lista (`cityId`) com busca e prévia no mapa.
+  - `admin/cidades`: exibição do **`id` da cidade** (fonte monoespaçada + copiar) na busca “cidades já cadastradas”, na lista “mapeadas por estado” e nos cards “sem área mapeada”.
+  - `admin/cidades`: correção do botão **Configurar** e ícone **Editar** nos cards “sem área mapeada” — ambos passam a abrir `/admin/cidades/[id]/mapear` (antes `Configurar` não tinha ação).
+  - `admin/cidades`: reforço de navegação nos cards “sem área mapeada” com `router.push` no card e nos botões de ação (evita falhas de clique em áreas com sobreposição visual/scroll).
+  - `admin/cidades`: lista **“Cidades mapeadas por estado”** e **“Cidades já cadastradas”** passam a abrir o editor via `router.push` na linha inteira (ícone sem `opacity-0`); bloco de copiar ID usa `stopPropagation` para não disparar navegação.
+  - `admin/cidades`: navegação para o editor passou a usar **âncoras HTML (`<a href>`)** + `cityEditorHref()` (e `window.location.assign` após criar cidade / ao escolher na busca), com card “sem mapeamento” usando link em tela cheia + ilhas `pointer-events-auto` para copiar ID e botões — contorna falhas de `router.push`/client navigation.
+
+---
+
+### 2026-03-19 — Editor de mapeamento: dados da cidade + botões rebaixados
+
+- **Objetivo**: dar espaço visual entre estatísticas e ações e exibir cadastro da cidade na lateral do editor.
+- **Implementado (frontend)**:
+  - Novo componente `src/components/admin/CityDataEditorCard.tsx` (edição de cadastro + ID com copiar).
+  - `admin/cidades/[id]/mapear`: card **Dados da cidade** entre **Estatísticas** e a faixa de botões; bloco de ações com `border-t` + `pt-6` para separar dos dados.
+  - Carregamento via `GET /api/admin/cities/[id]/coverage` já existente (`ibgeCode`, `isActive`).
+- **Implementado (backend)**: `PATCH /api/admin/cities/[id]` para atualizar nome, UF, país, lat/lng, IBGE e `isActive`.
+- **Próximo passo**: opcional — exibir regiões IBGE no card quando estiverem preenchidas no banco.
+- **Atualização**: card **Estatísticas** com texto explicando “Pontos” e “Status”; dados da cidade com formulário editável e `PATCH /api/admin/cities/[id]`.
+- **Layout**: cards **Instruções** e **Estatísticas** abaixo do mapa, lado a lado (`md:grid-cols-2`); coluna direita só com dados da cidade e botões de ação.
+
