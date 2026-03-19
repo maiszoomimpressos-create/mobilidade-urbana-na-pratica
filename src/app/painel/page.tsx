@@ -86,11 +86,12 @@ export default function PainelPage() {
   }
 
   useEffect(() => {
-    if (!data?.tenant?.id) return
+    const tenant = data?.tenant
+    if (!tenant?.id) return
 
     let cancelled = false
     const loadCities = async () => {
-      const tenantId = data.tenant.id
+      const tenantId = tenant.id
       if (cancelled) return
       await reloadCities(tenantId)
     }

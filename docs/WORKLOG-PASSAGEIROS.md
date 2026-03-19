@@ -389,3 +389,15 @@ Use este arquivo para sabermos exatamente **onde paramos** e **qual é o próxim
   - Removidos imports não utilizados e a constante órfã.
 - **Pendente**: novo deploy na Vercel após push em `staging`.
 
+---
+
+### 2026-03-19 — Correção typecheck: parâmetros não usados em rotas API + painel
+
+- **Objetivo**: build Vercel (`noUnusedParameters`) em handlers e narrowing de `tenant` no painel do parceiro.
+- **Implementado**:
+  - `api/admin/advertisements/[id]`: `_request` em `GET` e `DELETE`.
+  - `api/admin/plans/[id]`: `_req` em `GET` e `DELETE`.
+  - `api/admin/roles/[id]`: `_request` em `GET` e `DELETE`.
+  - `api/admin/tenants/[id]/editable-fields`: `_request` em `GET`.
+  - `painel/page.tsx`: variável local `tenant` após guard para usar `tenant.id` com tipo seguro.
+
