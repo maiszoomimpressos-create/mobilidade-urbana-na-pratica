@@ -41,7 +41,8 @@ interface Role {
 }
 
 interface UserWithPermissions {
-  id: string
+  /** Mesmo campo que a API retorna em GET /api/admin/user-permissions */
+  userId: string
   email: string
   name: string | null
   tenantUsers: Array<{

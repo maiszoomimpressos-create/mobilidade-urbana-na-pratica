@@ -371,3 +371,12 @@ Use este arquivo para sabermos exatamente **onde paramos** e **qual é o próxim
 - **Pendente**: novo deploy na Vercel após `commit`/`push` em `staging`; validar `npm run build` no CI.
 - **Próximo passo**: fazer push da branch `staging` e conferir o deploy.
 
+---
+
+### 2026-03-19 — Correção typecheck: UserWithPermissions em admin/permissoes
+
+- **Objetivo**: build Vercel falhava em `UserWithPermissions`: uso de `userId` vs tipo com `id`.
+- **Implementado (frontend)**:
+  - `src/app/admin/permissoes/page.tsx`: interface alinhada à resposta de `GET /api/admin/user-permissions` (campo `userId`).
+- **Pendente**: novo deploy na Vercel após push em `staging`.
+
