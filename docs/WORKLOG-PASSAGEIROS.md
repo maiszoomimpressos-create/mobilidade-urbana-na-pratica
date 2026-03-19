@@ -359,3 +359,15 @@ Use este arquivo para sabermos exatamente **onde paramos** e **qual é o próxim
 - **Atualização**: card **Estatísticas** com texto explicando “Pontos” e “Status”; dados da cidade com formulário editável e `PATCH /api/admin/cities/[id]`.
 - **Layout**: cards **Instruções** e **Estatísticas** abaixo do mapa, lado a lado (`md:grid-cols-2`); coluna direita só com dados da cidade e botões de ação.
 
+---
+
+### 2026-03-19 — Correção build Vercel: seed de Plan alinhado ao Prisma
+
+- **Objetivo**: corrigir falha de typecheck em `npm run build` na Vercel (`prisma/seed.ts`: propriedade `price` inexistente no modelo `Plan`).
+- **Implementado (backend/seed)**:
+  - `prisma/plan.upsert` para `basic`, `pro` e `enterprise` passou a usar `targetType`, `chargeType`, `valueFormat`, `value` e `sortOrder` (mensalidade fixa em R$), com `update` espelhando `create` para re-seed idempotente.
+- **SQL aplicado**: nenhum (apenas script de seed).
+- **Status atual**: tipos do seed compatíveis com `Plan` no `schema.prisma`.
+- **Pendente**: novo deploy na Vercel após `commit`/`push` em `staging`; validar `npm run build` no CI.
+- **Próximo passo**: fazer push da branch `staging` e conferir o deploy.
+

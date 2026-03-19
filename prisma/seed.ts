@@ -1,4 +1,10 @@
-import { PrismaClient, type Feature } from '@prisma/client'
+import {
+  PrismaClient,
+  type Feature,
+  PlanTargetType,
+  PlanChargeType,
+  PlanValueFormat,
+} from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -79,40 +85,67 @@ async function main() {
     })
   }
 
-  // Criar planos padrão
+  // Criar planos padrão (mensalidade fixa em R$ — alinhado ao schema Plan)
+  const planDefaults = {
+    targetType: PlanTargetType.BRAND,
+    chargeType: PlanChargeType.MONTHLY,
+    valueFormat: PlanValueFormat.FIXED,
+  } as const
+
   const basicPlan = await prisma.plan.upsert({
     where: { slug: 'basic' },
-    update: {},
+    update: {
+      name: 'Plano Básico',
+      description: 'Plano básico para pequenas empresas',
+      ...planDefaults,
+      value: 99,
+      sortOrder: 1,
+    },
     create: {
       name: 'Plano Básico',
       slug: 'basic',
       description: 'Plano básico para pequenas empresas',
-      price: 99.0,
-      interval: 'monthly',
+      ...planDefaults,
+      value: 99,
+      sortOrder: 1,
     },
   })
 
   const proPlan = await prisma.plan.upsert({
     where: { slug: 'pro' },
-    update: {},
+    update: {
+      name: 'Plano Profissional',
+      description: 'Plano profissional para empresas médias',
+      ...planDefaults,
+      value: 299,
+      sortOrder: 2,
+    },
     create: {
       name: 'Plano Profissional',
       slug: 'pro',
       description: 'Plano profissional para empresas médias',
-      price: 299.0,
-      interval: 'monthly',
+      ...planDefaults,
+      value: 299,
+      sortOrder: 2,
     },
   })
 
   const enterprisePlan = await prisma.plan.upsert({
     where: { slug: 'enterprise' },
-    update: {},
+    update: {
+      name: 'Plano Enterprise',
+      description: 'Plano enterprise para grandes empresas',
+      ...planDefaults,
+      value: 999,
+      sortOrder: 3,
+    },
     create: {
       name: 'Plano Enterprise',
       slug: 'enterprise',
       description: 'Plano enterprise para grandes empresas',
-      price: 999.0,
-      interval: 'monthly',
+      ...planDefaults,
+      value: 999,
+      sortOrder: 3,
     },
   })
 
