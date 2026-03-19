@@ -14,14 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Loader2,
   Tag,
@@ -67,11 +60,6 @@ interface Plan {
 const CHARGE_TYPE_LABELS = {
   PER_RIDE: 'Por corrida',
   MONTHLY: 'Mensal',
-}
-
-const VALUE_FORMAT_LABELS = {
-  PERCENTAGE: '%',
-  FIXED: 'R$',
 }
 
 export default function PlanosPage() {

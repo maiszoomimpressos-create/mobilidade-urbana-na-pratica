@@ -380,3 +380,12 @@ Use este arquivo para sabermos exatamente **onde paramos** e **qual é o próxim
   - `src/app/admin/permissoes/page.tsx`: interface alinhada à resposta de `GET /api/admin/user-permissions` (campo `userId`).
 - **Pendente**: novo deploy na Vercel após push em `staging`.
 
+---
+
+### 2026-03-19 — Correção typecheck: admin/planos imports não usados
+
+- **Objetivo**: build Vercel falhava com `noUnusedLocals` em `src/app/admin/planos/page.tsx` (imports `Select*` e `TabsContent`; constante `VALUE_FORMAT_LABELS`).
+- **Implementado (frontend)**:
+  - Removidos imports não utilizados e a constante órfã.
+- **Pendente**: novo deploy na Vercel após push em `staging`.
+
