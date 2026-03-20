@@ -409,3 +409,38 @@ Use este arquivo para sabermos exatamente **onde paramos** e **qual é o próxim
 - **Ação**: `staging` foi incorporada na `main` (fast-forward até o commit com correções de build e `src/app/admin/parceiros/page.tsx`).
 - **Pós-deploy**: aguardar deploy de **Production** na Vercel e validar `/admin/parceiros` e variáveis (`DATABASE_URL`, Supabase, rede liberada).
 
+---
+
+### 2026-03-20 — Encerramento de sessão: deploy Vercel + produção alinhada
+
+- **Objetivo**: registrar o que foi feito e o que falta **testar** na próxima retomada.
+
+- **Operacional (Vercel / Supabase)** — feito nesta sessão:
+  - Variável **`DATABASE_URL`** cadastrada na Vercel (valor **sem aspas** no campo).
+  - Demais chaves já existentes conferidas (`NEXT_PUBLIC_SUPABASE_*`, etc.).
+  - **Supabase → Database → Network Restrictions**: uso de **Allow all access** para permitir conexões externas (ex.: IPs da Vercel); antes: `FATAL: Address not in tenant allow_list`.
+  - Após isso, **Admin → Cidades** passou a listar dados no deploy.
+
+- **Git** — feito nesta sessão:
+  - **`main`** atualizada com o conteúdo da **`staging`** (resolve **404** em `www.maidrive.com.br/admin/parceiros` — rota ausente na `main` antiga).
+  - Push **`main`** e **`staging`** alinhadas (incl. worklog).
+  - **Commits de referência**: correções de build (`seed` Plan, permissões, planos, rotas API); merge produção; worklog `f431a32` na `main`.
+
+- **Segurança (pendente quando possível)**:
+  - Rotacionar **senha do Postgres** / revisar chaves se URLs sensíveis foram expostas em canal inseguro.
+  - Produção: revisar **`NEXTAUTH_URL`** = `https://www.maidrive.com.br` (ou domínio real), não só `localhost`.
+
+- **PRÓXIMA SESSÃO — checklist de testes (rodar em `www.maidrive.com.br` após deploy Production Ready)**:
+  1. `/admin` — dashboard abre; menus novos (**Centrais**, **Nova Central**, **Aprovações**, etc.).
+  2. `/admin/parceiros` — **Criar central**, multi-cidade, lista de cidades (igual localhost).
+  3. `/admin/cidades` — busca, **Testar chave do Google**, listagens.
+  4. `/admin/funcionalidades` — carregar centrais (sem erro de API).
+  5. `/admin/permissoes` — buscar usuário, grant/revoke extra.
+  6. `/admin/planos` — abrir e salvar sem erro.
+  7. `/admin/centrais` e detalhe `[id]` — carregar dados da central.
+  8. `/painel` (parceiro logado) — tenant e cidades.
+  9. Login Google / sessão em **HTTPS** se aplicável.
+  10. Comparar com **`localhost`** apenas para divergências inesperadas.
+
+- **Próximo passo**: quando retornar, executar o checklist acima e anotar falhas (URL + mensagem de erro, sem colar segredos).
+
