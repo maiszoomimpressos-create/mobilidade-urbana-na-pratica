@@ -401,3 +401,11 @@ Use este arquivo para sabermos exatamente **onde paramos** e **qual é o próxim
   - `api/admin/tenants/[id]/editable-fields`: `_request` em `GET`.
   - `painel/page.tsx`: variável local `tenant` após guard para usar `tenant.id` com tipo seguro.
 
+---
+
+### 2026-03-20 — Produção (main): merge staging + 404 /admin/parceiros
+
+- **Contexto**: `www.maidrive.com.br/admin/parceiros` retornava **404** porque a rota existia só na `staging`; a `main` estava desatualizada.
+- **Ação**: `staging` foi incorporada na `main` (fast-forward até o commit com correções de build e `src/app/admin/parceiros/page.tsx`).
+- **Pós-deploy**: aguardar deploy de **Production** na Vercel e validar `/admin/parceiros` e variáveis (`DATABASE_URL`, Supabase, rede liberada).
+
