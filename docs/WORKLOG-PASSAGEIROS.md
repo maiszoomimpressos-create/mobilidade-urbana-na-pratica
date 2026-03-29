@@ -728,3 +728,10 @@ ALTER TABLE tenant_ride_types
 - **`ensureDefaultRideTypesForTenant`**: ao final, `count` de tipos do tenant deve ser **≥ 1**; senão lança erro (falha a transação inteira).
 - **Produção `maidrive.com.br`**: deploy “Production” na Vercel costuma seguir a branch **`main`**; commits só em **`staging`** não atualizam o site público até **merge staging → main** (ou mudar a branch de produção nas Settings do projeto).
 - **Correção de dados antigos**: `POST /api/admin/backfill/ride-types` (master) ou `npm run db:backfill-ride-types` para centrais já aprovadas sem tipo.
+
+---
+
+### 2026-03-28 — Vercel: 500 em tipos de corrida / URL `partner-ride-type`
+
+- **Rewrites** em `next.config.js`: `/api/partner-ride-type` e `.../:path*` → `/api/partner/ride-types` (compatível com path errado ou resumo no DevTools).
+- **`PATCH` `[id]`**: `resolveDynamicRouteParam` — `params` síncrono (Next 14) ou `Promise` (Next 15+).

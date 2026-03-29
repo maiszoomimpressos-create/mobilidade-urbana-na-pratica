@@ -12,6 +12,14 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['sharp'],
   },
+
+  /** URLs antigas / erro de digitação (DevTools às vezes resume o path). */
+  async rewrites() {
+    return [
+      { source: '/api/partner-ride-type', destination: '/api/partner/ride-types' },
+      { source: '/api/partner-ride-type/:path*', destination: '/api/partner/ride-types/:path*' },
+    ]
+  },
 }
 
 module.exports = nextConfig

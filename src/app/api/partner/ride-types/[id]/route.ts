@@ -8,6 +8,7 @@ import {
   setRideTypeImageUrlRaw,
 } from '@/lib/tenant-ride-type-image-raw'
 import { nextResponseFromPrismaError, nextResponseInternalError } from '@/lib/prisma-http-error'
+import { resolveDynamicRouteParam } from '@/lib/next-route-params'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,11 +29,11 @@ function parseNonNegativeDecimal(value: unknown): Prisma.Decimal | null {
  */
 export async function PATCH(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const { id } = await context.params
-    if (!id || typeof id !== 'string') {
+    const id = await resolveDynamicRouteParam(context.params, 'id')
+    if (!id) {
       return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     }
 
