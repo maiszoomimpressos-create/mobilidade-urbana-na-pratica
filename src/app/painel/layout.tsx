@@ -4,22 +4,24 @@ import { useEffect, useState } from 'react'
 import Header from '@/components/landing/Header'
 import Footer from '@/components/landing/Footer'
 import PartnerSidebar from '@/components/partner/PartnerSidebar'
+import { partnerMeFetchInit } from '@/lib/partner-me-client'
 
 export default function PainelLayout({ children }: { children: React.ReactNode }) {
   const [modulesUnlocked, setModulesUnlocked] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/partner/me')
-      .then((r) => r.json().catch(() => ({})))
-      .then((j) => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/partner/me', await partnerMeFetchInit())
+        const j = await res.json().catch(() => ({}))
         if (cancelled) return
         const t = j?.tenant
         setModulesUnlocked(t?.approvalStatus === 'approved')
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setModulesUnlocked(false)
-      })
+      }
+    })()
     return () => {
       cancelled = true
     }

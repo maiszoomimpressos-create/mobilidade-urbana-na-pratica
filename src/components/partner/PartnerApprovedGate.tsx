@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { partnerMeFetchInit } from '@/lib/partner-me-client'
 
 /**
  * Só permite ver módulos além da visão geral quando a central está aprovada.
@@ -13,9 +14,10 @@ export function PartnerApprovedGate({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/partner/me')
-      .then((r) => r.json().catch(() => ({})))
-      .then((j) => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/partner/me', await partnerMeFetchInit())
+        const j = await res.json().catch(() => ({}))
         if (cancelled) return
         const t = j?.tenant
         if (t?.approvalStatus === 'approved') {
@@ -23,10 +25,10 @@ export function PartnerApprovedGate({ children }: { children: React.ReactNode })
         } else {
           router.replace('/painel')
         }
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) router.replace('/painel')
-      })
+      }
+    })()
     return () => {
       cancelled = true
     }

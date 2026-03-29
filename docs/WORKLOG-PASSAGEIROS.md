@@ -689,3 +689,12 @@ ALTER TABLE tenant_ride_types
   - `PATCH /api/admin/tenants/pending` (aprovar/rejeitar): em transação, atualiza também **`tenant_users.isActive`** alinhado ao `isActive` do tenant (rejeitar desliga vínculos; aprovar religa).
 - **Dados legados**: se a central estiver inativa e o vínculo ainda ativo, rodar `scripts/sql/reconcile-partner-tenant-links.sql` no Supabase.
 - **Pendente**: deploy na Vercel; se `canRegister` continuar false, conferir no JSON de `links` qual central ainda bloqueia e ajustar no SQL ou excluir de novo pelo painel após o deploy.
+
+---
+
+### 2026-03-28 — Painel: central aprovada não aparecia (preview Vercel / sessão)
+
+- **Sintoma**: `/painel` mostrava “não possui central” com usuário logado no header; URL de **preview** `.vercel.app`.
+- **Causa**: `GET /api/partner/me` no servidor dependia de **cookies** Supabase; em muitos previews o cliente tem sessão (localStorage/header) mas a **API route** não recebe o cookie → `email` null → `{ tenant: null }`.
+- **Correção**: `partnerMeFetchInit()` em `src/lib/partner-me-client.ts` — envia **`Authorization: Bearer <access_token>`** + `credentials: 'include'` (igual `/parceiro`). Uso em `painel/page.tsx`, `painel/layout.tsx`, `PartnerApprovedGate.tsx`.
+- **Se ainda falhar**: aí é dado no Postgres (`tenants` / `tenant_users` inativos); conferir `GET /api/partner/register-eligibility` ou SQL em `scripts/sql/reconcile-partner-tenant-links.sql`.

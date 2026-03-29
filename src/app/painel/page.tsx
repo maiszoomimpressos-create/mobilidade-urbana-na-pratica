@@ -8,6 +8,7 @@ import { Building2, Clock, CheckCircle, XCircle, ArrowRight, Settings, Users, Ba
 import MapPreview from '@/components/admin/MapPreview'
 import { Input } from '@/components/ui/input'
 import PartnerCentralActions from '@/components/partner/PartnerCentralActions'
+import { partnerMeFetchInit } from '@/lib/partner-me-client'
 
 type TenantInfo = {
   id: string
@@ -48,7 +49,7 @@ export default function PainelPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/partner/me')
+        const res = await fetch('/api/partner/me', await partnerMeFetchInit())
         const json = await res.json().catch(() => ({}))
         if (res.ok && json?.tenant) {
           setData(json)
