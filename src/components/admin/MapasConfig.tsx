@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Settings, RefreshCw, AlertCircle, CheckCircle2, ExternalLink, Eye, EyeOff, PlayCircle } from 'lucide-react'
+import { partnerMeFetchInit } from '@/lib/partner-me-client'
 
 const MAP_PROVIDER_LINKS: Record<string, { label: string; url: string }> = {
   GOOGLE_MAPS: {
@@ -105,7 +106,7 @@ export default function MapasConfig({ variant = 'admin' }: MapasConfigProps) {
   const loadTenantVisual = useCallback(async () => {
     if (variant !== 'gestor') return
     try {
-      const response = await fetch('/api/auth/me')
+      const response = await fetch('/api/auth/me', await partnerMeFetchInit())
       if (!response.ok) return
       const data = await response.json()
       const tenant = data?.user?.tenantUsers?.[0]?.tenant

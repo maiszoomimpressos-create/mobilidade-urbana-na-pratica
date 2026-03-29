@@ -66,7 +66,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null)
       }
 
-      const res = await fetch('/api/auth/me', { credentials: 'include' })
+      const headers: Record<string, string> = {}
+      if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`
+      }
+      const res = await fetch('/api/auth/me', {
+        credentials: 'include',
+        cache: 'no-store',
+        headers,
+      })
       if (res.ok) {
         const data = await res.json()
         setUser(data.user)
@@ -106,13 +114,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (user) {
-      fetch('/api/auth/me', { credentials: 'include' })
-        .then((res) => res.ok ? res.json() : null)
-        .then((data) => {
-          if (data?.user) setUser(data.user)
+    if (!user?.id) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        const headers: Record<string, string> = {}
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+        const res = await fetch('/api/auth/me', {
+          credentials: 'include',
+          cache: 'no-store',
+          headers,
         })
-        .catch(() => {})
+        if (cancelled || !res.ok) return
+        const data = await res.json().catch(() => null)
+        if (data?.user) setUser(data.user)
+      } catch {
+        /* ignore */
+      }
+    })()
+    return () => {
+      cancelled = true
     }
   }, [user?.id])
 

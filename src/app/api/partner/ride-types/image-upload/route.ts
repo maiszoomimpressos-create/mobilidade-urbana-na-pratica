@@ -38,6 +38,17 @@ async function ensureBucketExists() {
  */
 export async function POST(request: NextRequest) {
   try {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+      return NextResponse.json(
+        {
+          error: 'Upload indisponível: falta SUPABASE_SERVICE_ROLE_KEY no servidor.',
+          detail:
+            'Na Vercel: Project → Settings → Environment Variables → adicione SUPABASE_SERVICE_ROLE_KEY (service_role do Supabase, não o anon). Depois redeploy.',
+        },
+        { status: 503 }
+      )
+    }
+
     const auth = await getPartnerTenantIdOrError(request)
     if (!auth.ok) return auth.response
 
@@ -85,6 +96,16 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('[partner/ride-types/image-upload] POST', error)
+    const msg = error instanceof Error ? error.message : String(error)
+    if (msg.includes('SUPABASE_SERVICE_ROLE_MISSING')) {
+      return NextResponse.json(
+        {
+          error: 'Storage não configurado (service role).',
+          detail: 'Defina SUPABASE_SERVICE_ROLE_KEY na Vercel e faça redeploy.',
+        },
+        { status: 503 }
+      )
+    }
     return NextResponse.json({ error: 'Erro ao fazer upload da imagem.' }, { status: 500 })
   }
 }

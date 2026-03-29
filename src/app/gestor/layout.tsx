@@ -32,13 +32,29 @@ export default function GestorLayout({
       setIsGestor(true)
       return
     }
-    fetch('/api/auth/me')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        const roles = data?.user?.tenantUsers?.map((tu: { role: { slug: string } }) => tu.role?.slug) ?? []
+    ;(async () => {
+      try {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        const headers: Record<string, string> = {}
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+        const res = await fetch('/api/auth/me', {
+          credentials: 'include',
+          cache: 'no-store',
+          headers,
+        })
+        if (!res.ok) {
+          setIsGestor(false)
+          return
+        }
+        const data = await res.json().catch(() => null)
+        const roles =
+          data?.user?.tenantUsers?.map((tu: { role: { slug: string } }) => tu.role?.slug) ?? []
         setIsGestor(roles.includes('manager'))
-      })
-      .catch(() => setIsGestor(false))
+      } catch {
+        setIsGestor(false)
+      }
+    })()
   }, [isAuthenticated, isLoading, user?.email, router])
 
   useEffect(() => {

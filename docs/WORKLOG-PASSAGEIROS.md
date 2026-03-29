@@ -709,3 +709,12 @@ ALTER TABLE tenant_ride_types
 - **Exclusão central** (`tenant-deactivate`): desativa `tenant_cities`, cancela `tenant_plans`, arquiva `slug` (`…-arq-{tenantId}`) para liberar nome em novo cadastro; `POST /api/partner/register` só bloqueia slug se `tenants.isActive = true`.
 - **UI**: `/painel/mapas` com lista de cidades + mesmo fluxo **Editar central** (adicionar cidade).
 - **Legado**: centrais inativas com slug antigo ainda podem gerar erro UNIQUE ao recriar — comentário no SQL de reconciliação.
+
+---
+
+### 2026-03-28 — Staging: 500 em `/api/auth/me` e upload de imagem (tipos de corrida)
+
+- **Causas**: (1) `getSessionForServer` antes do Prisma em `/api/auth/me` — falha de schema (ex.: `accountKind`) ou cookie fraco no preview; (2) upload usa Storage com `SUPABASE_SERVICE_ROLE_KEY` — se ausente na Vercel, erro genérico 500; (3) `sharp` pode falhar ao empacotar no serverless.
+- **Implementado**: `GET /api/auth/me` tenta **Bearer** primeiro; fallback de select sem `accountKind` + `STANDARD`; mensagens **503** para schema / Supabase; clientes (`AuthProvider`, `Header`, `MapasConfig`, `dashboard`, `gestor`) enviam Bearer.
+- **Upload**: checagem explícita de `SUPABASE_SERVICE_ROLE_KEY` → **503** com texto para Vercel; erro do **sharp** → **400**; `next.config.js` — `experimental.serverComponentsExternalPackages: ['sharp']`.
+- **Mensagem de erro no painel**: upload exibe `detail` da API quando existir.

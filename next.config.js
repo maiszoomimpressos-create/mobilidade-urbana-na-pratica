@@ -8,6 +8,10 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  /** Evita bundling incorreto do sharp em API routes (Vercel / serverless). */
+  experimental: {
+    serverComponentsExternalPackages: ['sharp'],
+  },
 }
 
 module.exports = nextConfig

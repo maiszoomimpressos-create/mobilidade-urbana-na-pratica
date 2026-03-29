@@ -42,7 +42,7 @@ export function createSupabaseAdminClient() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      'NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios no .env'
+      'SUPABASE_SERVICE_ROLE_MISSING: defina SUPABASE_SERVICE_ROLE_KEY na Vercel (Settings → Environment Variables). Necessário para upload no Storage.'
     )
   }
 

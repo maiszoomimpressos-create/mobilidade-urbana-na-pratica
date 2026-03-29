@@ -214,7 +214,10 @@ export default function PainelTiposCorridaPage() {
       const res = await fetch('/api/partner/ride-types/image-upload', await partnerFormDataPostInit(fd))
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setSaveError(typeof json?.error === 'string' ? json.error : 'Falha no upload da imagem.')
+        const base =
+          typeof json?.error === 'string' ? json.error : 'Falha no upload da imagem.'
+        const detail = typeof json?.detail === 'string' ? json.detail : ''
+        setSaveError(detail ? `${base} ${detail}` : base)
         return
       }
       if (typeof json.url === 'string') {

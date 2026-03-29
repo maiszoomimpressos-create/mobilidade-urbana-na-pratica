@@ -24,13 +24,26 @@ const Header = () => {
 
   useEffect(() => {
     if (!isLoggedIn) return
-    fetch("/api/auth/me")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        const roles = data?.user?.tenantUsers?.map((tu: { role: { slug: string } }) => tu.role?.slug) ?? []
-        setIsGestor(roles.includes("manager"))
-      })
-      .catch(() => {})
+    ;(async () => {
+      try {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        const headers: Record<string, string> = {}
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+        const res = await fetch('/api/auth/me', {
+          credentials: 'include',
+          cache: 'no-store',
+          headers,
+        })
+        if (!res.ok) return
+        const data = await res.json().catch(() => null)
+        const roles =
+          data?.user?.tenantUsers?.map((tu: { role: { slug: string } }) => tu.role?.slug) ?? []
+        setIsGestor(roles.includes('manager'))
+      } catch {
+        /* ignore */
+      }
+    })()
   }, [isLoggedIn])
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-hero/80 backdrop-blur-lg border-b border-primary/10">

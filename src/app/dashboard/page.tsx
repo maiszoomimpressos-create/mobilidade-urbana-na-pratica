@@ -45,9 +45,19 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!isAuthenticated) return
-    fetch('/api/auth/me')
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => {
+    ;(async () => {
+      try {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        const headers: Record<string, string> = {}
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+        const res = await fetch('/api/auth/me', {
+          credentials: 'include',
+          cache: 'no-store',
+          headers,
+        })
+        if (!res.ok) return
+        const data = await res.json().catch(() => null)
         const list = data?.user?.tenantUsers?.map((tu: { tenant: TenantWithLink }) => tu.tenant) ?? []
         setTenants(list)
         if (list.length > 0) {
@@ -56,8 +66,10 @@ export default function DashboardPage() {
         }
         const roles = data?.user?.tenantUsers?.map((tu: { role: { slug: string } }) => tu.role?.slug) ?? []
         setIsGestor(roles.includes('manager'))
-      })
-      .catch(() => {})
+      } catch {
+        /* ignore */
+      }
+    })()
   }, [isAuthenticated])
 
   const saveTenantSettings = async () => {
