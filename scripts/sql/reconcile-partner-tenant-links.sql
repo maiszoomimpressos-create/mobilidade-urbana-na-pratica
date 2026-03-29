@@ -31,3 +31,9 @@ WHERE tu."tenantId" = t.id
 
 -- 4) Opcional: desativar manualmente uma central pelo slug (depois rode o UPDATE acima de novo)
 -- UPDATE tenants SET "isActive" = false, "updatedAt" = NOW() WHERE slug = 'abacate';
+
+-- 5) Legado: central INATIVA ainda com slug “original” bloqueia UNIQUE no Postgres ao cadastrar outra com o mesmo nome.
+--    O código novo arquiva slug ao excluir; para linhas antigas, rode uma vez (ajuste o critério se precisar):
+-- UPDATE tenants
+-- SET slug = LEFT(slug, GREATEST(1, 60 - LENGTH('-legacy-' || id))) || '-legacy-' || id, "updatedAt" = NOW()
+-- WHERE "isActive" = false AND slug NOT LIKE '%-arq-%' AND slug NOT LIKE '%-legacy-%';

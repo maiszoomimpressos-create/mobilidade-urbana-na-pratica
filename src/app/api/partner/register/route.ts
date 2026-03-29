@@ -64,8 +64,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Nome inválido para gerar slug.' }, { status: 400 })
     }
 
-    const existingSlug = await prisma.tenant.findUnique({
-      where: { slug },
+    const existingSlug = await prisma.tenant.findFirst({
+      where: { slug, isActive: true },
       select: { id: true },
     })
     if (existingSlug) {

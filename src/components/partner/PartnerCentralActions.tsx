@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AlertTriangle, Plus, Trash2 } from 'lucide-react'
+import { partnerJsonPostInit } from '@/lib/partner-me-client'
 
 type PartnerCentralActionsProps = {
   tenantId: string
@@ -31,12 +32,7 @@ export default function PartnerCentralActions({ tenantId, tenantName, onCitiesCh
 
     setLoadingAction('remove')
     try {
-      const res = await fetch('/api/partner/tenant/remove', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ tenantId }),
-      })
+      const res = await fetch('/api/partner/tenant/remove', await partnerJsonPostInit({ tenantId }))
 
       if (!res.ok) {
         const json = await res.json().catch(() => ({}))
@@ -63,12 +59,10 @@ export default function PartnerCentralActions({ tenantId, tenantName, onCitiesCh
 
     setLoadingAction('add')
     try {
-      const res = await fetch('/api/partner/tenant/cities/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ tenantId, cityName: name, cityState: state }),
-      })
+      const res = await fetch(
+        '/api/partner/tenant/cities/add',
+        await partnerJsonPostInit({ tenantId, cityName: name, cityState: state })
+      )
 
       if (!res.ok) {
         const json = await res.json().catch(() => ({}))

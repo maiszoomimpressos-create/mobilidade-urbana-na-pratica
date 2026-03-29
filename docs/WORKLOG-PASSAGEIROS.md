@@ -698,3 +698,14 @@ ALTER TABLE tenant_ride_types
 - **Causa**: `GET /api/partner/me` no servidor dependia de **cookies** Supabase; em muitos previews o cliente tem sessão (localStorage/header) mas a **API route** não recebe o cookie → `email` null → `{ tenant: null }`.
 - **Correção**: `partnerMeFetchInit()` em `src/lib/partner-me-client.ts` — envia **`Authorization: Bearer <access_token>`** + `credentials: 'include'` (igual `/parceiro`). Uso em `painel/page.tsx`, `painel/layout.tsx`, `PartnerApprovedGate.tsx`.
 - **Se ainda falhar**: aí é dado no Postgres (`tenants` / `tenant_users` inativos); conferir `GET /api/partner/register-eligibility` ou SQL em `scripts/sql/reconcile-partner-tenant-links.sql`.
+
+---
+
+### 2026-03-28 — Cidades no painel (staging), exclusão completa e Mapas real
+
+- **Problema**: central aprovada sem cidades na visão geral; “Mapas & Cobertura” era só placeholder — cidade só em **Editar central**, e `POST /api/partner/tenant/cities/add` falhava no preview Vercel (só cookie, sem Bearer).
+- **Correção auth**: `getPartnerDbUserIdFromRequest` em `partner-tenant-auth.ts`; uso em `cities/add`, `tenant/remove`. `GET /api/partner/cities` exige o mesmo usuário (remove bypass inseguro por `tenantId`); filtra `tenant_users` + `tenants` ativos.
+- **Cliente**: `partnerJsonPostInit` / `partnerFormDataPostInit` / `partnerPatchJsonInit`; `PartnerCentralActions`, `painel` (reload cidades), `tipos-de-corrida` (ride-types + upload + PATCH/POST).
+- **Exclusão central** (`tenant-deactivate`): desativa `tenant_cities`, cancela `tenant_plans`, arquiva `slug` (`…-arq-{tenantId}`) para liberar nome em novo cadastro; `POST /api/partner/register` só bloqueia slug se `tenants.isActive = true`.
+- **UI**: `/painel/mapas` com lista de cidades + mesmo fluxo **Editar central** (adicionar cidade).
+- **Legado**: centrais inativas com slug antigo ainda podem gerar erro UNIQUE ao recriar — comentário no SQL de reconciliação.

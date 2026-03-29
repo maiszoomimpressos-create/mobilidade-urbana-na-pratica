@@ -6,6 +6,38 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
+/**
+ * `users.id` (Prisma) do parceiro logado — Bearer ou cookie (previews Vercel).
+ */
+export async function getPartnerDbUserIdFromRequest(request: NextRequest): Promise<string | null> {
+  const authHeader = request.headers.get('authorization') || ''
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : ''
+
+  let email: string | null = null
+
+  if (bearerToken) {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+    const { data, error } = await supabase.auth.getUser(bearerToken)
+    if (!error && data?.user?.email) {
+      email = data.user.email.toLowerCase()
+    }
+  }
+
+  if (!email) {
+    const session = await getSessionForServer()
+    email = session?.user?.email ?? null
+  }
+
+  if (!email) return null
+
+  const dbUser = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: 'insensitive' } },
+    select: { id: true },
+  })
+
+  return dbUser?.id ?? null
+}
+
 export type PartnerAuthOk = { ok: true; tenantId: string }
 export type PartnerAuthErr = { ok: false; response: NextResponse }
 

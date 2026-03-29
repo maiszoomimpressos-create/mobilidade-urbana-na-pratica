@@ -25,6 +25,12 @@ import {
 } from '@/components/ui/select'
 import { ArrowLeft, CarFront, Loader2, Pencil, Plus, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  partnerFormDataPostInit,
+  partnerJsonPostInit,
+  partnerMeFetchInit,
+  partnerPatchJsonInit,
+} from '@/lib/partner-me-client'
 
 type RideTypeRow = {
   id: string
@@ -44,10 +50,14 @@ type PartnerCity = { id: string; name: string; state: string }
 type DialogMode = 'closed' | 'edit' | 'create'
 
 async function fetchRideTypesList(): Promise<{ ok: boolean; error?: string; rideTypes: RideTypeRow[] }> {
+  const init = await partnerMeFetchInit()
   const res = await fetch('/api/partner/ride-types', {
-    credentials: 'include',
-    cache: 'no-store',
-    headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+    ...init,
+    headers: {
+      ...(init.headers as Record<string, string>),
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+    },
   })
   const json = await res.json().catch(() => ({}))
   if (!res.ok) {
@@ -140,7 +150,7 @@ export default function PainelTiposCorridaPage() {
     setCitiesLoading(true)
     ;(async () => {
       try {
-        const res = await fetch('/api/partner/cities', { credentials: 'include', cache: 'no-store' })
+        const res = await fetch('/api/partner/cities', await partnerMeFetchInit())
         const json = await res.json().catch(() => ({}))
         const raw = Array.isArray(json?.cities) ? json.cities : []
         const cities: PartnerCity[] = raw
@@ -201,11 +211,7 @@ export default function PainelTiposCorridaPage() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const res = await fetch('/api/partner/ride-types/image-upload', {
-        method: 'POST',
-        body: fd,
-        credentials: 'include',
-      })
+      const res = await fetch('/api/partner/ride-types/image-upload', await partnerFormDataPostInit(fd))
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
         setSaveError(typeof json?.error === 'string' ? json.error : 'Falha no upload da imagem.')
@@ -227,11 +233,9 @@ export default function PainelTiposCorridaPage() {
       setSaving(true)
       setSaveError(null)
       try {
-        const res = await fetch(`/api/partner/ride-types/${editing.id}`, {
-          method: 'PATCH',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        const res = await fetch(
+          `/api/partner/ride-types/${editing.id}`,
+          await partnerPatchJsonInit({
             name: formName.trim(),
             description: formDescription.trim() === '' ? null : formDescription.trim(),
             imageUrl: formImageUrl.trim() === '' ? null : formImageUrl.trim(),
@@ -239,8 +243,8 @@ export default function PainelTiposCorridaPage() {
             pricePerKm: formKm,
             pricePerMin: formMin,
             isActive: formActive,
-          }),
-        })
+          })
+        )
         const json = await res.json().catch(() => ({}))
         if (!res.ok) {
           setSaveError(typeof json?.error === 'string' ? json.error : 'Não foi possível salvar.')
@@ -292,12 +296,7 @@ export default function PainelTiposCorridaPage() {
           payload.cityId = null
         }
 
-        const res = await fetch('/api/partner/ride-types', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
+        const res = await fetch('/api/partner/ride-types', await partnerJsonPostInit(payload))
         const json = await res.json().catch(() => ({}))
         if (!res.ok) {
           setSaveError(typeof json?.error === 'string' ? json.error : 'Não foi possível criar.')

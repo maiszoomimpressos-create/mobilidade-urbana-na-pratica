@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getSessionForServer } from '@/lib/supabase-auth'
+import { getPartnerDbUserIdFromRequest } from '@/lib/partner-tenant-auth'
 import { deactivateTenantAndAllMemberLinks } from '@/lib/tenant-deactivate'
 
 export const dynamic = 'force-dynamic'
@@ -12,8 +12,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSessionForServer()
-    const userId = session?.user?.id ?? null
+    const userId = await getPartnerDbUserIdFromRequest(request)
     if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
     const body = await request.json().catch(() => ({}))

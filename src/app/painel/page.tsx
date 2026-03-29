@@ -68,10 +68,10 @@ export default function PainelPage() {
   const reloadCities = async (tenantId: string) => {
     setCitiesLoading(true)
     try {
-      const res = await fetch(`/api/partner/cities?tenantId=${encodeURIComponent(tenantId)}`, {
-        credentials: 'include',
-        cache: 'no-store',
-      })
+      const res = await fetch(
+        `/api/partner/cities?tenantId=${encodeURIComponent(tenantId)}`,
+        await partnerMeFetchInit()
+      )
       const json = await res.json().catch(() => ({}))
 
       const list = Array.isArray(json?.cities) ? (json.cities as TenantCity[]) : []
