@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { isMasterAdmin } from '@/lib/auth-master'
+import { deactivateTenantAndAllMemberLinks } from '@/lib/tenant-deactivate'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +13,69 @@ function slugify(value: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60)
+}
+
+/**
+ * GET /api/admin/tenants/[id]
+ * Dados da central para edição no admin master (tela /admin/centrais/[id]).
+ */
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    if (!(await isMasterAdmin())) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
+    }
+
+    const tenantId = params.id
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logo: true,
+        primaryColor: true,
+        secondaryColor: true,
+        isActive: true,
+        showPassengerAds: true,
+        tenantCities: {
+          where: { isActive: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: {
+            city: {
+              select: {
+                id: true,
+                name: true,
+                state: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!tenant) {
+      return NextResponse.json({ error: 'Central não encontrada.' }, { status: 404 })
+    }
+
+    return NextResponse.json({
+      id: tenant.id,
+      name: tenant.name,
+      slug: tenant.slug,
+      logo: tenant.logo,
+      primaryColor: tenant.primaryColor,
+      secondaryColor: tenant.secondaryColor,
+      isActive: tenant.isActive,
+      showPassengerAds: tenant.showPassengerAds,
+      linkedCity: tenant.tenantCities[0]?.city ?? null,
+    })
+  } catch (error) {
+    console.error('[admin/tenants/:id] GET', error)
+    return NextResponse.json({ error: 'Erro ao carregar central' }, { status: 500 })
+  }
 }
 
 /**
@@ -195,11 +259,7 @@ export async function DELETE(
       })
     }
 
-    await prisma.tenant.update({
-      where: { id: tenantId },
-      data: { isActive: false },
-      select: { id: true },
-    })
+    await deactivateTenantAndAllMemberLinks(tenantId)
 
     return NextResponse.json({
       success: true,

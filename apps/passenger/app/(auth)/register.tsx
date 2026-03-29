@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native'
 import { router } from 'expo-router'
 import { Link } from 'expo-router'
@@ -18,14 +19,24 @@ export default function RegisterScreen() {
   const { branding } = useBranding()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleRegister = async () => {
     setError('')
-    if (!name.trim() || !email.trim() || !password) {
-      setError('Preencha nome, e-mail e senha.')
+    const phoneDigits = phone.replace(/\D/g, '')
+    if (!name.trim() || !email.trim() || !phone.trim() || !password) {
+      setError('Preencha nome, e-mail, telefone e senha.')
+      return
+    }
+    if (phoneDigits.length < 10) {
+      setError('Informe um telefone válido (DDD + número, mín. 10 dígitos).')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Informe um e-mail válido.')
       return
     }
     if (password.length < 6) {
@@ -37,7 +48,13 @@ export default function RegisterScreen() {
       const { data, error: err } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { data: { full_name: name.trim() } },
+        options: {
+          data: {
+            full_name: name.trim(),
+            phone: phone.trim(),
+            user_type: 'passenger',
+          },
+        },
       })
       if (err) {
         setError(err.message === 'User already registered' ? 'Este e-mail já está cadastrado.' : err.message)
@@ -46,7 +63,9 @@ export default function RegisterScreen() {
       if (data.session) {
         router.replace('/(tabs)')
       } else {
-        setError('Cadastro feito. Confirme seu e-mail e depois entre na tela de login.')
+        Alert.alert('Conta criada', 'Faça login com seu e-mail e senha.', [
+          { text: 'OK', onPress: () => router.replace('/(auth)/login') },
+        ])
       }
     } catch {
       setError('Erro ao cadastrar. Tente de novo.')
@@ -83,6 +102,16 @@ export default function RegisterScreen() {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Telefone (WhatsApp / celular)"
+            placeholderTextColor="#999"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            autoComplete="tel"
           />
           <TextInput
             style={styles.input}

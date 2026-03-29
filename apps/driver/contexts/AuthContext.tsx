@@ -27,7 +27,12 @@ interface AuthContextType {
   driver: Driver | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
-  signUp: (email: string, password: string, name: string, phone: string) => Promise<{ error: Error | null }>
+  signUp: (
+    email: string,
+    password: string,
+    name: string,
+    phone: string
+  ) => Promise<{ error: Error | null; session: Session | null }>
   signOut: () => Promise<void>
   refreshDriver: () => Promise<void>
 }
@@ -118,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signUp = async (email: string, password: string, name: string, phone: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -129,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       },
     })
-    return { error }
+    return { error, session: data.session ?? null }
   }
 
   const signOut = async () => {

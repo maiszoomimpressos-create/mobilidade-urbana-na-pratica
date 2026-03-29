@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { isMasterAdmin } from '@/lib/auth-master'
+import { ensureDefaultRideTypesForTenant } from '@/lib/tenant-default-ride-types'
 
 export const dynamic = 'force-dynamic'
 const PASSENGER_ADS_FEATURE_SLUG = 'passenger_advertising'
@@ -261,6 +262,8 @@ export async function POST(request: NextRequest) {
           })),
         })
       }
+
+      await ensureDefaultRideTypesForTenant(tx, createdTenant.id, selectedCityIds)
 
       if (featureSlugs.length > 0) {
         const features = await tx.feature.findMany({

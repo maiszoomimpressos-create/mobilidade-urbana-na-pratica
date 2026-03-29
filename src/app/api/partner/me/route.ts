@@ -46,7 +46,12 @@ export async function GET(request: NextRequest) {
     }
 
     const tenantUser = await prisma.tenantUser.findFirst({
-      where: { userId: dbUser.id, tenant: { isActive: true } },
+      where: {
+        userId: dbUser.id,
+        isActive: true,
+        tenant: { isActive: true },
+      },
+      orderBy: { createdAt: 'asc' },
       include: {
         tenant: {
           select: {

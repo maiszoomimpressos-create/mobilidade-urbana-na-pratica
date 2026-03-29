@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { getApiBaseUrl } from '@/lib/apiBaseUrl'
 
 const TENANT_SLUG_KEY = '@passenger:tenant_slug'
 const TENANT_OVERRIDE_KEY = '@passenger:tenant_override'
@@ -81,11 +82,10 @@ export async function clearTenantOverride(): Promise<void> {
 }
 
 export async function fetchBranding(slug: string): Promise<BrandingConfig> {
-  const apiUrl = process.env.EXPO_PUBLIC_APP_API_URL?.trim()
-  if (!apiUrl) return { ...DEFAULT_BRANDING, name: slug === 'mai-drive' ? 'Mai Drive' : slug }
+  const apiUrl = getApiBaseUrl()
 
   try {
-    const res = await fetch(`${apiUrl.replace(/\/$/, '')}/api/app/tenant-config?slug=${encodeURIComponent(slug)}`)
+    const res = await fetch(`${apiUrl}/api/app/tenant-config?slug=${encodeURIComponent(slug)}`)
     const data = await res.json()
     return {
       name: data.name ?? DEFAULT_BRANDING.name,
@@ -101,13 +101,10 @@ export async function fetchBranding(slug: string): Promise<BrandingConfig> {
 }
 
 export async function fetchUserTenants(token: string): Promise<UserTenantsResponse> {
-  const apiUrl = process.env.EXPO_PUBLIC_APP_API_URL?.trim()
-  if (!apiUrl) {
-    return { canSwitch: false, tenants: [] }
-  }
+  const apiUrl = getApiBaseUrl()
 
   try {
-    const res = await fetch(`${apiUrl.replace(/\/$/, '')}/api/app/user-tenants`, {
+    const res = await fetch(`${apiUrl}/api/app/user-tenants`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

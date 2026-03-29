@@ -1,15 +1,24 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-export default function RegisterPage() {
+/**
+ * Cadastro web: por padrão grava user_type passenger (alinhado a users.accountKind).
+ * Link da central para motorista: /register?intent=driver
+ */
+function RegisterForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const intent = searchParams.get('intent')?.toLowerCase() ?? ''
+  const isDriverIntent = intent === 'driver'
+  const signupUserType = isDriverIntent ? 'driver' : 'passenger'
+
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -37,7 +46,7 @@ export default function RegisterPage() {
       let supabase
       try {
         supabase = createClient()
-      } catch (clientErr) {
+      } catch {
         setError(
           'Configuração do Supabase ausente. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel.'
         )
@@ -47,7 +56,10 @@ export default function RegisterPage() {
         email: email.trim(),
         password,
         options: {
-          data: { full_name: name.trim() || undefined },
+          data: {
+            full_name: name.trim() || undefined,
+            user_type: signupUserType,
+          },
         },
       })
 
@@ -66,7 +78,6 @@ export default function RegisterPage() {
         return
       }
 
-      // Já logado (sem confirmação de email): vai para a home
       if (data.session) {
         await new Promise((r) => setTimeout(r, 300))
         router.push('/')
@@ -89,6 +100,18 @@ export default function RegisterPage() {
           <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
             Criar nova conta
           </h2>
+          {isDriverIntent ? (
+            <p className="mt-2 text-center text-sm text-amber-800 bg-amber-50 rounded-md py-2 px-3">
+              Cadastro como <strong>motorista</strong> (use o app motorista após confirmar a conta, se
+              aplicável).
+            </p>
+          ) : (
+            <p className="mt-2 text-center text-sm text-muted-foreground">
+              Conta para uso como <strong>passageiro</strong> (padrão). Para motorista pelo site, use o
+              link com <code className="text-xs bg-muted px-1 rounded">?intent=driver</code> ou o app
+              motorista.
+            </p>
+          )}
           <p className="mt-2 text-center text-sm text-gray-600">
             Ou{' '}
             <Link
@@ -167,16 +190,26 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading}
-            >
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Criando conta...' : 'Criar conta'}
             </Button>
           </div>
         </form>
       </div>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+          Carregando…
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
   )
 }

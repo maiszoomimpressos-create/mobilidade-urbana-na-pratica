@@ -13,6 +13,9 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
+    "db:backfill-ride-types": "tsx scripts/backfill-tenant-ride-types.ts",
+    "db:diagnose-tenant": "tsx scripts/diagnose-tenant.ts",
+    "db:list-admin-access": "tsx scripts/list-admin-access.ts",
     "usuario:teste": "tsx scripts/criar-usuario-teste.ts",
     "senha:redefinir": "tsx scripts/redefinir-senha-admin.ts",
     "db:test": "node scripts/test-db-connection.js",
@@ -20,7 +23,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
-    "apk:passenger": "powershell -ExecutionPolicy Bypass -File scripts/gerar-apk-passageiro.ps1"
+    "apk:passenger": "powershell -ExecutionPolicy Bypass -File scripts/gerar-apk-passageiro.ps1",
+    "dev:android:passenger": "npm run android --prefix apps/passenger",
+    "dev:android:driver": "npm run android --prefix apps/driver"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",

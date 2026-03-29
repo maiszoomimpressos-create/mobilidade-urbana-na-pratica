@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSessionForServer } from '@/lib/supabase-auth'
+import { ensureDefaultRideTypesForTenant } from '@/lib/tenant-default-ride-types'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,22 +69,34 @@ export async function POST(request: NextRequest) {
       select: { id: true },
     })
 
-    if (existing) {
-      await prisma.tenantCity.update({
-        where: { id: existing.id },
-        data: { isActive: true },
-        select: { id: true },
+    await prisma.$transaction(async (tx) => {
+      if (existing) {
+        await tx.tenantCity.update({
+          where: { id: existing.id },
+          data: { isActive: true },
+          select: { id: true },
+        })
+      } else {
+        await tx.tenantCity.create({
+          data: {
+            tenantId,
+            cityId: city.id,
+            isActive: true,
+          },
+          select: { id: true },
+        })
+      }
+
+      const linkedCityIds = await tx.tenantCity.findMany({
+        where: { tenantId, isActive: true },
+        select: { cityId: true },
       })
-    } else {
-      await prisma.tenantCity.create({
-        data: {
-          tenantId,
-          cityId: city.id,
-          isActive: true,
-        },
-        select: { id: true },
-      })
-    }
+      await ensureDefaultRideTypesForTenant(
+        tx,
+        tenantId,
+        linkedCityIds.map((r) => r.cityId)
+      )
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

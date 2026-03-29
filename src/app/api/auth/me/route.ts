@@ -22,6 +22,7 @@ export async function GET(_request: NextRequest) {
         email: true,
         name: true,
         image: true,
+        accountKind: true,
         emailVerified: true,
         createdAt: true,
         tenantUsers: {

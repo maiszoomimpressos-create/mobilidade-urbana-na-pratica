@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSessionForServer } from '@/lib/supabase-auth'
+import { deactivateTenantAndAllMemberLinks } from '@/lib/tenant-deactivate'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,11 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Apenas o owner pode excluir a central.' }, { status: 403 })
     }
 
-    await prisma.tenant.update({
-      where: { id: tenantId },
-      data: { isActive: false },
-      select: { id: true },
-    })
+    await deactivateTenantAndAllMemberLinks(tenantId)
 
     return NextResponse.json({ success: true })
   } catch (error) {

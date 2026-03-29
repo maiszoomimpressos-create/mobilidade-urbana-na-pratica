@@ -29,8 +29,19 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false)
 
   const handleRegister = async () => {
-    if (!name || !email || !phone || !password || !confirmPassword) {
-      Alert.alert('Erro', 'Preencha todos os campos')
+    if (!name.trim() || !email.trim() || !phone.trim() || !password || !confirmPassword) {
+      Alert.alert('Erro', 'Preencha nome, e-mail, telefone e senha.')
+      return
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      Alert.alert('Erro', 'Informe um e-mail válido.')
+      return
+    }
+
+    const phoneDigits = phone.replace(/\D/g, '')
+    if (phoneDigits.length < 10) {
+      Alert.alert('Erro', 'Informe um telefone válido (DDD + número, mín. 10 dígitos).')
       return
     }
 
@@ -45,7 +56,7 @@ export default function RegisterScreen() {
     }
 
     setLoading(true)
-    const { error } = await signUp(email, password, name, phone)
+    const { error, session } = await signUp(email.trim(), password, name.trim(), phone.trim())
     setLoading(false)
 
     if (error) {
@@ -61,10 +72,12 @@ export default function RegisterScreen() {
       } else {
         Alert.alert('Erro', error.message || 'Erro ao criar conta')
       }
+    } else if (session) {
+      router.replace('/(tabs)')
     } else {
       Alert.alert(
-        'Sucesso',
-        'Conta criada! Verifique seu e-mail para confirmar o cadastro.',
+        'Conta criada',
+        'Faça login com seu e-mail e senha.',
         [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }]
       )
     }
@@ -117,6 +130,7 @@ export default function RegisterScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="email"
             />
 
             <TextInput
@@ -128,11 +142,12 @@ export default function RegisterScreen() {
                   borderColor: colors.border,
                 },
               ]}
-              placeholder="Telefone (WhatsApp)"
+              placeholder="Telefone (WhatsApp / celular)"
               placeholderTextColor={colors.textSecondary}
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
+              autoComplete="tel"
             />
 
             <TextInput

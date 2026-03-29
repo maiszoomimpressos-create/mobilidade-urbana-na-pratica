@@ -76,10 +76,11 @@ export default function EditCentralPage() {
   const loadTenant = useCallback(async () => {
     try {
       setLoading(true)
+      const fetchOpts: RequestInit = { credentials: 'include', cache: 'no-store' }
       const [tenantRes, capabilitiesRes, fieldsRes] = await Promise.all([
-        fetch(`/api/admin/tenants/${tenantId}`),
-        fetch(`/api/admin/tenants/${tenantId}/capabilities`),
-        fetch(`/api/admin/tenants/${tenantId}/editable-fields`),
+        fetch(`/api/admin/tenants/${tenantId}`, fetchOpts),
+        fetch(`/api/admin/tenants/${tenantId}/capabilities`, fetchOpts),
+        fetch(`/api/admin/tenants/${tenantId}/editable-fields`, fetchOpts),
       ])
 
       if (!tenantRes.ok) {

@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { StyleSheet, View, Pressable, Text, Alert, TextInput, ScrollView, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import CityMap from '@/components/CityMap';
 import { TenantSwitcher } from '@/components/TenantSwitcher';
 import { AdBanner } from '@/components/AdBanner';
+import { RideTypeCarousel } from '@/components/RideTypeCarousel';
 import { supabase } from '@/lib/supabase';
 import { useBranding } from '@/contexts/BrandingContext';
+import type { AppRideType } from '@/lib/rideTypes';
 
 const BTN_SIZE = 52;
 const AD_BANNER_HEIGHT = 72;
@@ -21,8 +23,14 @@ function getGreeting(): string {
 }
 
 export default function InicioScreen() {
-  const { branding, loadAvailableTenants } = useBranding();
+  const { branding, loadAvailableTenants, availableTenants } = useBranding();
   const [userName, setUserName] = useState<string>('');
+  const [selectedRideType, setSelectedRideType] = useState<AppRideType | null>(null);
+
+  const rideTypesCityId = useMemo(() => {
+    if (availableTenants.length !== 1) return null;
+    return availableTenants[0].linkedCity?.id ?? null;
+  }, [availableTenants]);
   const [destinos, setDestinos] = useState<string[]>(['']);
   const [hasConnectedDriver, setHasConnectedDriver] = useState(false);
   const [bottomSheetHeight, setBottomSheetHeight] = useState<number>(190);
@@ -57,10 +65,23 @@ export default function InicioScreen() {
     loadUserAndTenants();
   }, [loadAvailableTenants]);
 
+  useEffect(() => {
+    setSelectedRideType(null);
+  }, [branding.slug]);
+
+  const onSelectRideType = useCallback((rt: AppRideType | null) => {
+    setSelectedRideType(rt);
+  }, []);
+
   const handleChamarCorrida = () => {
     const preenchidos = destinos.filter((d) => d.trim().length > 0);
     setHasConnectedDriver(true);
-    Alert.alert('Chamar corrida', `Destinos: ${preenchidos.join(' → ')}. Em breve: cálculo e envio ao motorista.`, [{ text: 'OK' }]);
+    const tipo = selectedRideType ? `\nModalidade: ${selectedRideType.name}` : '';
+    Alert.alert(
+      'Chamar corrida',
+      `Destinos: ${preenchidos.join(' → ')}.${tipo}\nEm breve: cálculo e envio ao motorista.`,
+      [{ text: 'OK' }]
+    );
   };
 
   const handleAdicionarParada = () => {
@@ -171,6 +192,15 @@ export default function InicioScreen() {
             ref={destinosScrollRef}
             showsVerticalScrollIndicator={true}
           >
+            {!keyboardVisible && (
+              <RideTypeCarousel
+                tenantSlug={branding.slug}
+                cityId={rideTypesCityId}
+                primaryColor={branding.primaryColor}
+                selectedId={selectedRideType?.id ?? null}
+                onSelect={onSelectRideType}
+              />
+            )}
             {destinos.map((valor, index) => (
               <View key={index} style={styles.searchRow}>
                 <View style={styles.searchDestinoBar}>
@@ -295,7 +325,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   destinosScroll: {
-    maxHeight: 140,
+    maxHeight: 280,
   },
   destinosScrollKeyboard: {
     maxHeight: 200,

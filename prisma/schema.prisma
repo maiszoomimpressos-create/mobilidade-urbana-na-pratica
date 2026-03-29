@@ -14,6 +14,14 @@ datasource db {
 // USUÁRIOS E AUTENTICAÇÃO
 // ============================================
 
+/// Tipo global do usuário no app (complementa roles por central em tenant_users).
+enum UserAccountKind {
+  STANDARD
+  ADMIN_MASTER
+  PASSENGER
+  DRIVER
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -21,6 +29,8 @@ model User {
   password      String?   // Hash da senha
   emailVerified DateTime?
   image         String?
+  /// Classificação principal da conta (admin plataforma, motorista, passageiro, etc.).
+  accountKind   UserAccountKind @default(STANDARD)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -636,6 +646,8 @@ model TenantRideType {
   name        String
   slug        String
   description String?
+  /// Imagem exibida no app do passageiro (URL pública, ex.: Supabase Storage).
+  imageUrl    String?  @db.Text
   basePrice   Decimal  @db.Decimal(10, 2)
   pricePerKm  Decimal  @db.Decimal(10, 2)
   pricePerMin Decimal  @db.Decimal(10, 2)

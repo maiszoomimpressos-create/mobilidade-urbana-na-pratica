@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { UserAccountKind } from '@prisma/client'
 import { createClient } from '@supabase/supabase-js'
+import { ensureDefaultRideTypesForTenant } from '@/lib/tenant-default-ride-types'
+import { findActivePartnerCentralForUser } from '@/lib/partner-active-central'
 
 export const dynamic = 'force-dynamic'
 
@@ -84,20 +87,23 @@ export async function POST(request: NextRequest) {
         data: {
           email: normalizedEmail,
           name: supabaseUser.user_metadata?.full_name as string || supabaseUser.user_metadata?.name as string || null,
+          accountKind: UserAccountKind.STANDARD,
         },
         select: { id: true },
       })
     }
 
-    const existingTenant = await prisma.tenantUser.findFirst({
-      where: { userId: dbUser.id },
-      include: { tenant: { select: { id: true, name: true, slug: true, approvalStatus: true } } },
-    })
+    const existingActive = await findActivePartnerCentralForUser(dbUser.id)
 
-    if (existingTenant) {
+    if (existingActive?.tenant) {
       return NextResponse.json({
         error: 'Você já possui uma central cadastrada.',
-        tenant: existingTenant.tenant,
+        tenant: {
+          id: existingActive.tenant.id,
+          name: existingActive.tenant.name,
+          slug: existingActive.tenant.slug,
+          approvalStatus: existingActive.tenant.approvalStatus,
+        },
       }, { status: 409 })
     }
 
@@ -182,6 +188,8 @@ export async function POST(request: NextRequest) {
           isActive: true,
         },
       })
+
+      await ensureDefaultRideTypesForTenant(tx, tenant.id, [city.id])
 
       if (planSlug) {
         const plan = await tx.plan.findFirst({

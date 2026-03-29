@@ -8,6 +8,7 @@ import {
   Dimensions,
 } from 'react-native'
 import { useBranding } from '@/contexts/BrandingContext'
+import { getApiBaseUrl } from '@/lib/apiBaseUrl'
 
 interface Ad {
   id: string
@@ -28,11 +29,10 @@ export function AdBanner({ position = 'PASSENGER_HOME' }: AdBannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
 
   const loadAds = useCallback(async () => {
-    const apiUrl = process.env.EXPO_PUBLIC_APP_API_URL?.trim()
-    if (!apiUrl) return
+    const apiUrl = getApiBaseUrl()
 
     try {
-      const url = `${apiUrl.replace(/\/$/, '')}/api/app/advertisements?tenant=${encodeURIComponent(branding.slug)}&position=${position}`
+      const url = `${apiUrl}/api/app/advertisements?tenant=${encodeURIComponent(branding.slug)}&position=${position}`
       const res = await fetch(url)
       const data = await res.json()
 
@@ -64,11 +64,10 @@ export function AdBanner({ position = 'PASSENGER_HOME' }: AdBannerProps) {
   }, [ads])
 
   async function trackImpression(adId: string) {
-    const apiUrl = process.env.EXPO_PUBLIC_APP_API_URL?.trim()
-    if (!apiUrl) return
+    const apiUrl = getApiBaseUrl()
 
     try {
-      await fetch(`${apiUrl.replace(/\/$/, '')}/api/app/advertisements`, {
+      await fetch(`${apiUrl}/api/app/advertisements`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adId, action: 'impression' }),
@@ -77,11 +76,10 @@ export function AdBanner({ position = 'PASSENGER_HOME' }: AdBannerProps) {
   }
 
   async function trackClick(adId: string) {
-    const apiUrl = process.env.EXPO_PUBLIC_APP_API_URL?.trim()
-    if (!apiUrl) return
+    const apiUrl = getApiBaseUrl()
 
     try {
-      await fetch(`${apiUrl.replace(/\/$/, '')}/api/app/advertisements`, {
+      await fetch(`${apiUrl}/api/app/advertisements`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adId, action: 'click' }),

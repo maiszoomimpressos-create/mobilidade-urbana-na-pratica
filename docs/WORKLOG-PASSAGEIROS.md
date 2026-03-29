@@ -444,3 +444,248 @@ Use este arquivo para sabermos exatamente **onde paramos** e **qual é o próxim
 
 - **Próximo passo**: quando retornar, executar o checklist acima e anotar falhas (URL + mensagem de erro, sem colar segredos).
 
+---
+
+### 2026-03-28 — Alinhamento API dos apps (passageiro + motorista) para produção
+
+- **Objetivo**: uma forma única de apontar o Next.js (Mai Drive) a partir dos apps Expo.
+- **Implementado (frontend apps)**:
+  - `apps/passenger/lib/apiBaseUrl.ts`: `getApiBaseUrl()` com `EXPO_PUBLIC_APP_API_URL` ou `EXPO_PUBLIC_API_URL`, fallback `https://maidrive.com.br`, ajuste `localhost` → `10.0.2.2` no emulador Android.
+  - Passageiro: `branding.ts`, `AdBanner.tsx`, `esqueci-senha.tsx` passam a usar `getApiBaseUrl()`.
+  - Motorista: `apiBaseUrl.ts` aceita também `EXPO_PUBLIC_APP_API_URL` e fallback `https://maidrive.com.br`.
+  - `apps/passenger/env.example` e `apps/driver/.env.example` atualizados com `maidrive.com.br`.
+- **Pendente (operacional)**:
+  - No **EAS** (preview/production), definir as mesmas variáveis para cada app: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, e URL da API (`EXPO_PUBLIC_APP_API_URL` no passageiro e/ou `EXPO_PUBLIC_API_URL` no motorista) = `https://maidrive.com.br` (ou `https://www.maidrive.com.br` se for o canônico).
+  - **Supabase Auth → URL Configuration**: incluir `https://maidrive.com.br/redefinir-senha` e `https://www.maidrive.com.br/redefinir-senha` em redirect URLs se usar fluxo de recuperação de senha.
+- **Próximo passo**: novo `eas build` após configurar env no EAS; testar login, branding e “esqueci senha” no aparelho.
+
+---
+
+### 2026-03-28 — Cadastro: telefone + e-mail (passageiro e motorista)
+
+- **Objetivo**: exigir telefone e e-mail nos formulários de cadastro dos apps.
+- **Passageiro** (`apps/passenger/app/(auth)/register.tsx`): campo **Telefone**, validação (mín. 10 dígitos numéricos) e e-mail; `signUp` envia `full_name`, `phone` e `user_type: 'passenger'` em `user_metadata` (Supabase).
+- **Motorista** (`apps/driver/app/(auth)/register.tsx`): já tinha nome, e-mail e telefone; adicionadas validações de formato de e-mail e telefone, `autoComplete`, placeholders alinhados e `trim` no envio.
+- **Backend**: `drivers` / `passengers` no Prisma continuam sem colunas de telefone; telefone fica em **metadata do Auth** (como já no fluxo do motorista em `/api/app/driver/register`). Persistência em tabela pode vir depois.
+- **Pendente**: testar cadastro nos dois apps; se quiser telefone no banco, migration + APIs de sync.
+
+---
+
+### 2026-03-28 — Cadastro sem confirmação de e-mail (fluxo nos apps)
+
+- **Supabase (obrigatório no painel)**: **Authentication → Providers → Email** → desativar **“Confirm email”** (ou equivalente) para o usuário receber **sessão na hora** após `signUp`.
+- **Passageiro** (`register.tsx`): se não vier `session`, alerta pede **login** (sem texto de “confirme o e-mail”).
+- **Motorista** (`AuthContext` + `register.tsx`): `signUp` devolve `session`; com sessão → `router.replace('/(tabs)')`; sem sessão → alerta para fazer login.
+- **Pendente**: aplicar a opção no projeto Supabase de produção e testar cadastro nos dois apps.
+
+---
+
+### 2026-03-28 — Tipo de corrida padrão ao criar / aprovar central
+
+- **Objetivo**: toda central (nossa bandeira ou white-label) passa a ter **TenantRideType** padrão ao nascer.
+- **Implementado (backend)**:
+  - `src/lib/tenant-default-ride-types.ts`: `ensureDefaultRideTypesForTenant` — se o tenant ainda não tem tipos, cria **“Corrida padrão”** (base R$ 5, R$ 2,50/km, R$ 0,45/min); **sem cidades** → um registro `slug: padrao`, `cityId` null; **com cidades** → um por cidade, `slug: padrao-<cityId>`.
+  - `POST /api/admin/tenants`: após vincular cidades, chama o helper na mesma transação.
+  - `POST /api/partner/register`: após `tenantCity`, chama o helper com a cidade do parceiro.
+  - `PATCH /api/admin/tenants/pending` (aprovar): garante tipos pendentes para centrais que ainda não tinham (idempotente se já existir tipo).
+- **Pendente**: centrais **antigas** sem tipo continuam sem até alguém criar manualmente ou rodar script; testar criação no admin e fluxo parceiro + aprovação.
+
+---
+
+### 2026-03-28 — Backfill: tipos de corrida em centrais antigas + após atualização do sistema
+
+- **Objetivo**: após mudanças no sistema, alinhar **todas** as centrais que ainda não têm `TenantRideType`.
+- **Implementado**:
+  - `backfillAllTenantsMissingDefaultRideTypes` em `src/lib/tenant-default-ride-types.ts` (lista tenants com `rideTypes: none`, aplica a mesma lógica de padrão por cidade).
+  - Script: `npm run db:backfill-ride-types` → `scripts/backfill-tenant-ride-types.ts` (usa `DATABASE_URL` do `.env`).
+  - API master: `POST /api/admin/backfill/ride-types` — mesmo efeito, para disparar do browser logado como admin master após deploy.
+- **Processo sugerido em cada release** que altere dados padrão de central: rodar o script na pipeline ou chamar a API uma vez em produção.
+- **Apps mobile**: passam a “ver” dados novos quando o backend e as APIs responderem; **binário** do app só precisa de novo build se mudar código nativo ou variáveis embutidas no APK.
+
+---
+
+### 2026-03-28 — Painel parceiro: listar tipos de corrida (dados reais)
+
+- **Problema**: `/painel/tipos-de-corrida` era só `PartnerModulePlaceholder` — não lia `tenant_ride_types`.
+- **Implementado**:
+  - `GET /api/partner/ride-types` — mesmo auth que `/api/partner/me`, retorna tipos da central com cidade (ou “Todas as cidades”).
+  - Página `painel/tipos-de-corrida` em modo cliente: lista cards com bandeirada / km / min; estado vazio explica backfill para centrais antigas.
+
+---
+
+### 2026-03-28 — Painel parceiro: editar tipo de corrida
+
+- **Objetivo**: permitir ao parceiro ajustar nome, descrição, preços e status ativo de cada `TenantRideType`.
+- **Implementado (backend)**:
+  - `PATCH /api/partner/ride-types/[id]` — auth igual ao GET; só atualiza se o registro pertence ao `tenantId` do usuário; campos: `name`, `description`, `basePrice`, `pricePerKm`, `pricePerMin`, `isActive`. **Não** altera `slug` nem `cityId`.
+- **Implementado (frontend)**:
+  - `painel/tipos-de-corrida`: botão **Editar** por card; modal com formulário e Switch de ativo; lista atualizada após salvar com sucesso.
+- **Pendente**: validar no browser (parceiro logado) que salvar reflete no banco e que valores decimais com vírgula/ponto se comportam como esperado.
+
+---
+
+### 2026-03-28 — Painel parceiro: adicionar nova corrida (tipo)
+
+- **Objetivo**: criar novos `TenantRideType` pelo painel do parceiro, sem depender só do padrão/backfill.
+- **Implementado (backend)**:
+  - `POST /api/partner/ride-types` — mesmo fluxo de auth que o GET (helper compartilhado no arquivo da rota); cria registro com `slug` único derivado do nome; `cityId` conforme cidades ativas da central (0 → null; 1 → obrigatório implícito ou explícito; 2+ → body deve trazer `cityId` null = todas ou id de cidade da central).
+- **Implementado (frontend)**:
+  - Botão **Nova corrida** no topo; no estado vazio, **Adicionar nova corrida**; modal unificado (criar vs editar) com select de cidade quando há 2+ cidades; padrões de preço iguais ao tipo automático (5 / 2,50 / 0,45).
+- **Pendente**: testar multi-cidade e central sem cidades; confirmar que apps listam o novo tipo quando esperado.
+
+---
+
+### 2026-03-28 — Imagem do tipo de corrida (painel + app passageiro)
+
+- **Objetivo**: permitir URL/imagem por `TenantRideType` e exibir no app do passageiro na escolha da modalidade.
+- **Banco**: `TenantRideType.imageUrl` (`String?`, `@db.Text`). Aplicar com `npx prisma db push` ou migration na pipeline.
+- **Backend**:
+  - `GET/PATCH` e `POST` em `/api/partner/ride-types` passam a incluir `imageUrl`; validação http(s), até 2048 caracteres (`parseRideTypeImageUrlField`).
+  - `POST /api/partner/ride-types/image-upload` — upload WebP no bucket público **`ride-type-images`** (Supabase admin, mesmo padrão da logo).
+  - `GET /api/app/ride-types?slug=...&cityId=` — lista tipos **ativos** da central aprovada; resposta com `imageUrl`, preços, `cityLabel` (público, para o app).
+  - `src/lib/partner-tenant-auth.ts` — auth do parceiro reutilizável; rotas de ride-types `[id]` passam a usar isso.
+- **Painel** (`tipos-de-corrida`): campo URL, upload, pré-visualização, miniatura no card; “Remover imagem” zera no PATCH.
+- **App passageiro**: `lib/rideTypes.ts` + `RideTypeCarousel` na home; filtro opcional por `cityId` quando o usuário tem **uma** central com cidade vinculada em `availableTenants`.
+- **Pendente**: rodar `npx prisma generate` (e `db push`) após fechar processos que bloqueiem o DLL no Windows; criar bucket `ride-type-images` em produção se o primeiro upload não criar automaticamente; testar imagem HTTPS no dispositivo real.
+
+---
+
+### 2026-03-29 — Erro ao salvar tipo com imagem (banco sem coluna)
+
+- **Causa provável**: `PATCH` falhava com **P2022** quando `tenant_ride_types` ainda não tinha a coluna `imageUrl` (schema Prisma atualizado, banco não).
+- **Implementado**: `src/lib/prisma-http-error.ts` — em **P2022** as APIs de ride-types retornam **503** com texto orientando `npx prisma db push` ou SQL `ALTER TABLE tenant_ride_types ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;` no Supabase.
+- **Operacional**: se `db push` no pooler (6543) travar, usar **connection string direta** (porta 5432) no `.env` só para o push, como já documentado no projeto.
+- **Ajuste 2026-03-29**: tratamento de `PrismaClientValidationError` (ex.: **Unknown arg `imageUrl`**) com mensagem pedindo `npx prisma generate`; em `NODE_ENV=development` o 500 genérico passa a incluir o texto do erro na resposta JSON para depuração.
+- **Ajuste 2026-03-29 (sem trocar env / generate)**: `imageUrl` passa a ser lida/gravada com **`$queryRaw` / `$executeRaw`** em `src/lib/tenant-ride-type-image-raw.ts` — o `update`/`create` tipado do Prisma **não** envia mais `imageUrl`, evitando client desatualizado; nome/preços salvam sempre; imagem só persiste se a coluna existir no banco.
+- **Ajuste 2026-03-29 (lista / miniatura)**: após **Salvar** na edição, o painel chama **`loadList()`** de novo (evita estado local desatualizado); leitura/gravação da imagem tenta coluna **`"imageUrl"`** e fallback **`image_url`** no Postgres.
+- **Correção 2026-03-29**: removido cache **`absent`** que fazia o mapa de imagens ficar **vazio para sempre** após a primeira falha (miniatura não aparecia mesmo com coluna criada depois); GET lista usa **`imageUrl` do SQL ou do Prisma**; headers **`Cache-Control: no-store`** na API e **`no-cache`** no `fetch` do painel.
+
+---
+
+### 2026-03-28 — Feedback de salvamento + tenant determinístico + `imagePersistFailed`
+
+- **Objetivo**: deixar claro quando o painel **realmente salvou** preços/texto e quando a **imagem** não entrou no banco; evitar `findFirst` em `tenantUser` sem ordem (usuário com várias centrais ativas).
+- **Implementado (backend)**:
+  - `getPartnerTenantIdOrError` e `GET /api/partner/me`: `orderBy: { createdAt: 'asc' }` em `tenantUser` (mesma central escolhida de forma estável).
+  - `POST /api/partner/ride-types` e `PATCH /api/partner/ride-types/[id]`: resposta com **`imagePersistFailed: true`** quando `setRideTypeImageUrlRaw` retorna `false` (coluna ausente ou erro no UPDATE).
+- **Implementado (frontend)**:
+  - `painel/tipos-de-corrida`: após criar/editar, faixa verde **“Salvo com sucesso”** / **“Tipo criado…”** ou âmbar se `imagePersistFailed`; some sozinha em ~12s; normalização de `imageUrl` vazia na lista.
+- **Pendente**: testar com parceiro que tenha **uma** central; na Rede, conferir JSON do PATCH/POST; no Supabase, confirmar coluna `imageUrl` em `tenant_ride_types` se a faixa âmbar aparecer.
+- **Próximo passo**: se ainda houver ambiguidade com várias centrais, persistir **tenant ativo** no cookie após escolha no painel.
+
+---
+
+### 2026-03-28 — Parceiro: “já tem central” após excluir (soft delete)
+
+- **Causa**: `POST /api/partner/register` bloqueava se existisse **qualquer** linha em `tenant_users`, mesmo com `tenants.isActive = false` (central “excluída” no painel).
+- **Regra no banco**: só considera central existente se **`tenant_users.isActive`** e **`tenants.isActive`** são **true** (`src/lib/partner-active-central.ts`: `findActivePartnerCentralForUser` / `userHasActivePartnerCentral`).
+- **Ajustes**: `GET /api/partner/me`, `getPartnerTenantIdOrError` também exigem `tenant_users.isActive`. `POST /api/partner/tenant/remove` agora desativa o vínculo (`tenant_users`) junto com a central.
+- **SQL de conferência** (Supabase): `SELECT * FROM tenant_users tu JOIN tenants t ON t.id = tu."tenantId" WHERE tu."userId" = '<id prisma do user>';` — se a central foi desativada, `t."isActive"` deve ser false e, após novo remove, `tu."isActive"` false.
+
+---
+
+### 2026-03-28 — Tipo de corrida padrão ao criar/vincular central
+
+- **Problema**: `ensureDefaultRideTypesForTenant` fazia `return` se a central já tivesse **qualquer** tipo — ao só existir `padrao` global (`cityId` null) ou ao vincular **cidades depois** (admin capabilities / parceiro “adicionar cidade”), **não** criava modalidade por cidade.
+- **Correção** (`src/lib/tenant-default-ride-types.ts`):
+  - Sem cidades: mantém regra “só cria `padrao` global se **zero** tipos”.
+  - Com cidades: para cada `cityId`, cria tipo padrão **se não existir** tipo para aquela cidade.
+- **Onde passa a rodar de novo**:
+  - `PATCH /api/admin/tenants/[id]/capabilities` após atualizar `tenant_cities`.
+  - `POST /api/partner/tenant/cities/add` após criar/reativar vínculo (transação única).
+- **Já existia** em: criação admin `POST /api/admin/tenants`, parceiro `POST /api/partner/register`, aprovação `PATCH /api/admin/tenants/pending`.
+- **Pendente**: centrais antigas sem tipo — `npm run db:backfill-ride-types` ou regravar cidades no admin.
+
+---
+
+### 2026-03-28 — Regra de cadastro: passageiro vs motorista + perfil duplo
+
+- **Supabase `user_metadata.user_type`**: `passenger` | `driver` | `partner` — usado para alinhar `users.accountKind` em `getSessionForServer` (`src/lib/user-account-kind-sync.ts`).
+- **Padrão**: sem tipo ou `passenger` → **PASSENGER**; `driver` → **DRIVER**; `partner` → **STANDARD**. Não rebaixa **ADMIN_MASTER**; não troca **DRIVER** para **PASSENGER** só pelo metadata (JWT fixo ao trocar de app).
+- **Web `/register`**: envia `user_type: passenger` por padrão; **`/register?intent=driver`** para link da central direcionando motorista.
+- **Apps**: passageiro e motorista já enviam `user_type` no signUp.
+- **`POST /api/app/driver/register`**: cria **`passengers`** se ainda não existir (mesmo `userId` Supabase e `tenantId`), para o motorista poder pedir corrida no app passageiro com a mesma conta; atualiza `users.accountKind` = **DRIVER** (exceto master).
+- **Parceiro** (`/api/partner/register`): cria `User` com **STANDARD** explícito.
+
+---
+
+### 2026-03-28 — `User.accountKind` (enum) + admin master no banco
+
+- **Banco**: enum Prisma `UserAccountKind` (`STANDARD`, `ADMIN_MASTER`, `PASSENGER`, `DRIVER`) e coluna **`users.accountKind`** (default `STANDARD`).
+- **`isMasterAdmin()`**: continua aceitando e-mails da env; **também** retorna true se `accountKind === ADMIN_MASTER`.
+- **Sessão**: `getSessionForServer` promove para `ADMIN_MASTER` quando o e-mail está na lista da env (create/update), sem rebaixar quem já é master.
+- **API** `GET /api/auth/me`: passa a expor `accountKind`.
+- **Script** `npm run db:list-admin-access` lista usuários com `ADMIN_MASTER`.
+- **SQL manual**: `scripts/sql/add-user-account-kind.sql` (Supabase).
+- **Pendente**: `npx prisma generate` (e `db push` ou SQL) — no Windows, fechar processos que seguram o engine se der EPERM.
+
+---
+
+### 2026-03-28 — Produção: 403 no admin em `/api/admin/tenants/*` (sessão no servidor)
+
+- **Sintoma**: após configurar env na Vercel, ainda **403** em `GET .../tenants/:id` e `.../editable-fields` (UI: “Erro ao carregar dados da central”).
+- **Causas possíveis**: (1) e-mail do login não está em `NEXT_PUBLIC_MASTER_ADMIN_EMAIL` / `..._EMAILS` ou deploy antigo sem redeploy; (2) em **API routes**, `supabase.auth.getSession()` pode não refletir o usuário de forma confiável — Supabase recomenda **`getUser()`** no servidor para validar o JWT.
+- **Implementado**: `getSessionForServer` passa a usar **`getUser()`** primeiro, com fallback para `getSession()`.
+
+---
+
+### 2026-03-28 — Script: listar e-mails com acesso admin (`list-admin-access`)
+
+- **Script**: `scripts/list-admin-access.ts` — `npm run db:list-admin-access`
+- **Mostra**: e-mails em `NEXT_PUBLIC_MASTER_ADMIN_EMAIL` / `..._EMAILS`; roles no banco; `tenant_users` com role `master`; usuários com permissão `manage_tenants` (papel + extras).
+
+---
+
+### 2026-03-28 — Admin master: `isMasterAdmin` e fetch da tela de central
+
+- **`isMasterAdmin`**: comparação de e-mail **case-insensitive**; suporte opcional a **`NEXT_PUBLIC_MASTER_ADMIN_EMAILS`** (vários e-mails separados por vírgula), além de `NEXT_PUBLIC_MASTER_ADMIN_EMAIL`.
+- **Página `/admin/centrais/[id]`**: `fetch` das três APIs com **`credentials: 'include'`** e **`cache: 'no-store'`** para sessão Supabase e evitar respostas antigas em cache.
+
+---
+
+### 2026-03-28 — Admin master: tela `/admin/centrais/[id]` (405 + 403)
+
+- **Sintoma** (produção): `GET /api/admin/tenants/:id` retornava **405**; `GET .../editable-fields` retornava **403**; página ficava em loading ou “Erro ao carregar dados da central”.
+- **Causa**:
+  - A rota `src/app/api/admin/tenants/[id]/route.ts` só exportava **PATCH** e **DELETE** — o front chama **GET** para montar o formulário.
+  - `editable-fields` usava `canAccessTenant`, que exige role **`master`** em `tenant_users`; o admin master definido por **`isMasterAdmin()`** (e-mail em `NEXT_PUBLIC_MASTER_ADMIN_EMAIL`) muitas vezes **não** tem esse vínculo → 403.
+- **Correção**:
+  - Implementado **GET** em `/api/admin/tenants/[id]` com `isMasterAdmin()`, retornando os campos esperados pela página (incl. `linkedCity` da primeira `tenant_city` ativa).
+  - Em `editable-fields`, se `isMasterAdmin()`, retornar todos os campos editáveis como `true` (igual ao fluxo das demais APIs admin de tenant).
+
+---
+
+### 2026-03-28 — Diagnóstico: central sem cidades no painel (ex.: “banana”)
+
+- **Consulta no banco** (`npm run db:diagnose-tenant -- banana`): central **banana** (`slug: banana`, tipo **brand**, aprovada e ativa) tem **1** `tenant_user` (owner `maiszoomimpressos1@gmail.com`) e **0** linhas em **`tenant_cities`**.
+- **Conclusão**: o login já está correto na central; o mapa/lista de cidades fica vazio porque **nunca houve vínculo cidade↔central** nessa tabela (ou foi removido no admin). Não é falha de “e-mail × central”.
+- **Correção**: no painel, **Editar central** → adicionar cidade (nome + UF), ou no **admin → Parceiros** salvar **cidades da central** para esse tenant; a cidade precisa existir na tabela `cities`.
+- **Script**: `scripts/diagnose-tenant.ts` + script npm `db:diagnose-tenant`.
+
+---
+
+### 2026-03-28 — SQL Supabase: coluna `imageUrl` em `tenant_ride_types`
+
+- **SQL aplicado** (Supabase SQL Editor):
+
+```sql
+ALTER TABLE tenant_ride_types
+  ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+```
+
+- **Status**: executado com sucesso no projeto Supabase do usuário; imagens de tipo de corrida passam a poder persistir após novo **Salvar** no painel.
+- **Pendente**: validar no painel que a miniatura aparece e que `imagePersistFailed` não volta mais ao salvar com URL/upload.
+
+---
+
+### 2026-03-28 — Parceiro: 409 “já tem central” + alinhamento admin / vínculos
+
+- **Sintoma**: `/parceiro` ainda mostra **“Você já tem uma central”** (409) mesmo após “excluir” — a API só libera novo cadastro quando **não** há par `tenant_users.isActive` **e** `tenants.isActive` ambos **true**.
+- **Diagnóstico**: novo endpoint **`GET /api/partner/register-eligibility`** (Bearer ou cookie) devolve `canRegister`, `reason` e `links` (cada linha com `blocksNewRegistration`).
+- **`findActivePartnerCentralForUser`**: deixa de fazer segundo `findFirst` no Prisma; monta o objeto a partir de `listPartnerCentralLinksForUser`.
+- **Consistência de soft delete**:
+  - `src/lib/tenant-deactivate.ts` — `deactivateTenantAndAllMemberLinks` (central + todos os `tenant_users` da central).
+  - `DELETE /api/admin/tenants/[id]` passou a usar a mesma função (antes só setava `tenants.isActive`, deixando vínculos ativos no banco).
+  - `PATCH /api/admin/tenants/pending` (aprovar/rejeitar): em transação, atualiza também **`tenant_users.isActive`** alinhado ao `isActive` do tenant (rejeitar desliga vínculos; aprovar religa).
+- **Dados legados**: se a central estiver inativa e o vínculo ainda ativo, rodar `scripts/sql/reconcile-partner-tenant-links.sql` no Supabase.
+- **Pendente**: deploy na Vercel; se `canRegister` continuar false, conferir no JSON de `links` qual central ainda bloqueia e ajustar no SQL ou excluir de novo pelo painel após o deploy.

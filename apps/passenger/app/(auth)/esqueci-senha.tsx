@@ -10,6 +10,7 @@ import {
 } from 'react-native'
 import { router } from 'expo-router'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { getApiBaseUrl } from '@/lib/apiBaseUrl'
 import { useBranding } from '@/contexts/BrandingContext'
 
 export default function EsqueciSenhaScreen() {
@@ -19,8 +20,8 @@ export default function EsqueciSenhaScreen() {
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const apiUrl = (process.env.EXPO_PUBLIC_APP_API_URL ?? '').trim()
-  const redirectTo = apiUrl ? `${apiUrl.replace(/\/$/, '')}/redefinir-senha` : undefined
+  const apiUrl = getApiBaseUrl()
+  const redirectTo = `${apiUrl}/redefinir-senha`
 
   const handleSubmit = async () => {
     setError('')
@@ -30,10 +31,6 @@ export default function EsqueciSenhaScreen() {
     }
     if (!isSupabaseConfigured) {
       setError('Supabase não configurado.')
-      return
-    }
-    if (!redirectTo) {
-      setError('Configure EXPO_PUBLIC_APP_API_URL no .env do app.')
       return
     }
     setLoading(true)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { isMasterAdmin } from '@/lib/auth-master'
+import { ensureDefaultRideTypesForTenant } from '@/lib/tenant-default-ride-types'
 
 export const dynamic = 'force-dynamic'
 
@@ -113,19 +114,34 @@ export async function PATCH(request: NextRequest) {
     const newStatus = action === 'approve' ? 'approved' : 'rejected'
     const isActive = action === 'approve'
 
-    await prisma.tenant.update({
-      where: { id: tenantId },
-      data: {
-        approvalStatus: newStatus,
-        isActive,
-      },
-      select: { id: true },
-    })
+    await prisma.$transaction([
+      prisma.tenant.update({
+        where: { id: tenantId },
+        data: {
+          approvalStatus: newStatus,
+          isActive,
+        },
+        select: { id: true },
+      }),
+      prisma.tenantUser.updateMany({
+        where: { tenantId },
+        data: { isActive },
+      }),
+    ])
 
     if (action === 'approve') {
       await prisma.tenantPlan.updateMany({
         where: { tenantId, status: 'pending' },
         data: { status: 'active' },
+      })
+
+      const tenantCities = await prisma.tenantCity.findMany({
+        where: { tenantId, isActive: true },
+        select: { cityId: true },
+      })
+      const cityIds = tenantCities.map((r) => r.cityId)
+      await prisma.$transaction(async (tx) => {
+        await ensureDefaultRideTypesForTenant(tx, tenantId, cityIds)
       })
     }
 

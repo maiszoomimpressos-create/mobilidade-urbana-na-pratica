@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { UserAccountKind } from '@prisma/client'
 import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
@@ -12,6 +13,8 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
  * Adiciona o perfil de motorista ao usuário autenticado.
  * Se o usuário já tem Passenger, usa o mesmo tenant.
  * Caso contrário, usa o primeiro tenant ativo.
+ * Garante também registro em `passengers` (mesmo userId Supabase) para poder pedir corrida no app passageiro.
+ * Atualiza `users.accountKind` = DRIVER quando possível (não altera ADMIN_MASTER).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -85,6 +88,33 @@ export async function POST(request: NextRequest) {
         },
       },
     })
+
+    const existingPassenger = await prisma.passenger.findUnique({
+      where: { userId: supabaseUser.id },
+      select: { id: true },
+    })
+    if (!existingPassenger) {
+      await prisma.passenger.create({
+        data: {
+          userId: supabaseUser.id,
+          tenantId,
+          isActive: true,
+        },
+      })
+    }
+
+    if (supabaseUser.email) {
+      const row = await prisma.user.findFirst({
+        where: { email: { equals: supabaseUser.email, mode: 'insensitive' } },
+        select: { id: true, accountKind: true },
+      })
+      if (row && row.accountKind !== UserAccountKind.ADMIN_MASTER) {
+        await prisma.user.update({
+          where: { id: row.id },
+          data: { accountKind: UserAccountKind.DRIVER },
+        })
+      }
+    }
 
     const name =
       (supabaseUser.user_metadata?.full_name as string) ||
