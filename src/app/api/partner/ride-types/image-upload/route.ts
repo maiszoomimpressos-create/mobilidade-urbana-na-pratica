@@ -1,35 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server'
-import sharp from 'sharp'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { getPartnerTenantIdOrError } from '@/lib/partner-tenant-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
+/** sharp quebra em alguns runtimes serverless; fallback envia JPEG/PNG/WebP original. */
+export const runtime = 'nodejs'
 
 const BUCKET_NAME = 'ride-type-images'
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
 
-async function ensureBucketExists() {
-  const supabase = createSupabaseAdminClient()
-  const { data: buckets, error: listError } = await supabase.storage.listBuckets()
+type PreparedImage = {
+  buffer: Buffer
+  contentType: string
+  extension: string
+}
 
-  if (listError) {
-    throw new Error('Não foi possível listar buckets de armazenamento.')
+/**
+ * Tenta WebP via sharp (menor + padronizado). Se sharp falhar (comum na Vercel), usa o arquivo original.
+ */
+async function prepareImage(buffer: Buffer, fileMime: string): Promise<PreparedImage> {
+  const mime = (fileMime || '').toLowerCase().split(';')[0].trim()
+
+  try {
+    const sharpMod = await import('sharp')
+    const sharp = sharpMod.default
+    const out = await sharp(buffer)
+      .rotate()
+      .resize({ width: 800, height: 800, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toBuffer()
+    return { buffer: out, contentType: 'image/webp', extension: 'webp' }
+  } catch (sharpErr) {
+    console.warn('[partner/ride-types/image-upload] sharp falhou, usando imagem original', sharpErr)
   }
 
-  const bucketExists = buckets?.some((bucket) => bucket.name === BUCKET_NAME)
-  if (bucketExists) return supabase
+  if (mime === 'image/jpeg' || mime === 'image/jpg') {
+    return { buffer, contentType: 'image/jpeg', extension: 'jpg' }
+  }
+  if (mime === 'image/png') {
+    return { buffer, contentType: 'image/png', extension: 'png' }
+  }
+  if (mime === 'image/webp') {
+    return { buffer, contentType: 'image/webp', extension: 'webp' }
+  }
 
-  const { error: createError } = await supabase.storage.createBucket(BUCKET_NAME, {
+  throw new Error(
+    `Não foi possível processar a imagem. Envie JPEG, PNG ou WebP (recebido: ${mime || 'desconhecido'}).`
+  )
+}
+
+/**
+ * Garante bucket sem depender de listBuckets (alguns projetos Supabase retornam erro em list).
+ */
+async function ensureBucketLikelyExists(supabase: SupabaseClient): Promise<void> {
+  const { error } = await supabase.storage.createBucket(BUCKET_NAME, {
     public: true,
-    fileSizeLimit: '5MB',
+    fileSizeLimit: 5242880,
     allowedMimeTypes: ['image/webp', 'image/png', 'image/jpeg', 'image/jpg'],
   })
-
-  if (createError && !createError.message.toLowerCase().includes('already exists')) {
-    throw new Error('Não foi possível criar bucket para imagens de tipo de corrida.')
+  if (!error) return
+  const m = (error.message || '').toLowerCase()
+  if (
+    m.includes('already') ||
+    m.includes('exists') ||
+    m.includes('duplicate') ||
+    m.includes('resource already')
+  ) {
+    return
   }
-
-  return supabase
+  console.warn('[partner/ride-types/image-upload] createBucket (aviso):', error.message)
 }
 
 /**
@@ -43,7 +83,7 @@ export async function POST(request: NextRequest) {
         {
           error: 'Upload indisponível: falta SUPABASE_SERVICE_ROLE_KEY no servidor.',
           detail:
-            'Na Vercel: Project → Settings → Environment Variables → adicione SUPABASE_SERVICE_ROLE_KEY (service_role do Supabase, não o anon). Depois redeploy.',
+            'Na Vercel: Settings → Environment Variables → SUPABASE_SERVICE_ROLE_KEY + Redeploy.',
         },
         { status: 503 }
       )
@@ -68,31 +108,39 @@ export async function POST(request: NextRequest) {
     }
 
     const sourceBuffer = Buffer.from(await file.arrayBuffer())
-    const webpBuffer = await sharp(sourceBuffer)
-      .rotate()
-      .resize({ width: 800, height: 800, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 82 })
-      .toBuffer()
+    let prepared: PreparedImage
+    try {
+      prepared = await prepareImage(sourceBuffer, file.type)
+    } catch (prepErr) {
+      const msg = prepErr instanceof Error ? prepErr.message : String(prepErr)
+      return NextResponse.json({ error: msg }, { status: 400 })
+    }
 
-    const filePath = `${auth.tenantId}/${Date.now()}-${crypto.randomUUID()}.webp`
-    const supabase = await ensureBucketExists()
+    const filePath = `${auth.tenantId}/${Date.now()}-${crypto.randomUUID()}.${prepared.extension}`
+    const supabase = createSupabaseAdminClient()
 
-    const { error: uploadError } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(filePath, webpBuffer, {
-        contentType: 'image/webp',
-        upsert: false,
-      })
+    await ensureBucketLikelyExists(supabase)
+
+    const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(filePath, prepared.buffer, {
+      contentType: prepared.contentType,
+      upsert: false,
+    })
 
     if (uploadError) {
-      console.error('[partner/ride-types/image-upload]', uploadError)
-      return NextResponse.json({ error: 'Falha ao enviar imagem.' }, { status: 500 })
+      console.error('[partner/ride-types/image-upload] storage', uploadError)
+      return NextResponse.json(
+        {
+          error: 'Falha ao enviar imagem no Supabase Storage.',
+          detail: uploadError.message,
+        },
+        { status: 502 }
+      )
     }
 
     const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath)
     return NextResponse.json({
       url: data.publicUrl,
-      contentType: 'image/webp',
+      contentType: prepared.contentType,
     })
   } catch (error) {
     console.error('[partner/ride-types/image-upload] POST', error)
@@ -106,6 +154,12 @@ export async function POST(request: NextRequest) {
         { status: 503 }
       )
     }
-    return NextResponse.json({ error: 'Erro ao fazer upload da imagem.' }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Erro ao fazer upload da imagem.',
+        detail: msg.slice(0, 280),
+      },
+      { status: 500 }
+    )
   }
 }

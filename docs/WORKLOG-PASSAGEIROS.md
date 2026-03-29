@@ -735,3 +735,10 @@ ALTER TABLE tenant_ride_types
 
 - **Rewrites** em `next.config.js`: `/api/partner-ride-type` e `.../:path*` → `/api/partner/ride-types` (compatível com path errado ou resumo no DevTools).
 - **`PATCH` `[id]`**: `resolveDynamicRouteParam` — `params` síncrono (Next 14) ou `Promise` (Next 15+).
+
+---
+
+### 2026-03-28 — Upload imagem tipo de corrida: sharp + listBuckets na Vercel
+
+- **Problema**: 500 em `/api/partner/ride-types/image-upload` mesmo com `SUPABASE_SERVICE_ROLE_KEY` — **sharp** costuma falhar em serverless; **`listBuckets`** pode falhar em alguns projetos Supabase.
+- **Correção**: `runtime = 'nodejs'`; **sharp** só via `import()`; se falhar, envia **JPEG/PNG/WebP original** (até 5MB); bucket com **`createBucket` idempotente** (ignora “já existe”), sem depender de `listBuckets`; respostas **502** com `detail` vindo do Storage; **500** com `detail` truncado do erro.
