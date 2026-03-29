@@ -114,35 +114,50 @@ export async function PATCH(request: NextRequest) {
     const newStatus = action === 'approve' ? 'approved' : 'rejected'
     const isActive = action === 'approve'
 
-    await prisma.$transaction([
-      prisma.tenant.update({
-        where: { id: tenantId },
-        data: {
-          approvalStatus: newStatus,
-          isActive,
-        },
-        select: { id: true },
-      }),
-      prisma.tenantUser.updateMany({
-        where: { tenantId },
-        data: { isActive },
-      }),
-    ])
-
+    /**
+     * Aprovação em **uma** transação: se criar tipo padrão falhar, a central não fica “aprovada” sem corrida base.
+     * Antes: update + plano em transações separadas da ensure → risco de estado inconsistente.
+     */
     if (action === 'approve') {
-      await prisma.tenantPlan.updateMany({
-        where: { tenantId, status: 'pending' },
-        data: { status: 'active' },
-      })
-
-      const tenantCities = await prisma.tenantCity.findMany({
-        where: { tenantId, isActive: true },
-        select: { cityId: true },
-      })
-      const cityIds = tenantCities.map((r) => r.cityId)
       await prisma.$transaction(async (tx) => {
+        await tx.tenant.update({
+          where: { id: tenantId },
+          data: {
+            approvalStatus: newStatus,
+            isActive,
+          },
+          select: { id: true },
+        })
+        await tx.tenantUser.updateMany({
+          where: { tenantId },
+          data: { isActive },
+        })
+        await tx.tenantPlan.updateMany({
+          where: { tenantId, status: 'pending' },
+          data: { status: 'active' },
+        })
+        const tenantCities = await tx.tenantCity.findMany({
+          where: { tenantId, isActive: true },
+          select: { cityId: true },
+        })
+        const cityIds = tenantCities.map((r) => r.cityId)
         await ensureDefaultRideTypesForTenant(tx, tenantId, cityIds)
       })
+    } else {
+      await prisma.$transaction([
+        prisma.tenant.update({
+          where: { id: tenantId },
+          data: {
+            approvalStatus: newStatus,
+            isActive,
+          },
+          select: { id: true },
+        }),
+        prisma.tenantUser.updateMany({
+          where: { tenantId },
+          data: { isActive },
+        }),
+      ])
     }
 
     return NextResponse.json({

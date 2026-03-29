@@ -60,6 +60,13 @@ export async function ensureDefaultRideTypesForTenant(
       },
     })
   }
+
+  const totalAfter = await tx.tenantRideType.count({ where: { tenantId } })
+  if (totalAfter < 1) {
+    throw new Error(
+      `INVARIANT: central ${tenantId} ficou sem tipo de corrida após ensureDefaultRideTypes (cidades=${uniqueCityIds.length}).`
+    )
+  }
 }
 
 /**

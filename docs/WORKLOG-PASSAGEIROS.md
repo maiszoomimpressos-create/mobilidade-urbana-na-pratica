@@ -718,3 +718,13 @@ ALTER TABLE tenant_ride_types
 - **Implementado**: `GET /api/auth/me` tenta **Bearer** primeiro; fallback de select sem `accountKind` + `STANDARD`; mensagens **503** para schema / Supabase; clientes (`AuthProvider`, `Header`, `MapasConfig`, `dashboard`, `gestor`) enviam Bearer.
 - **Upload**: checagem explícita de `SUPABASE_SERVICE_ROLE_KEY` → **503** com texto para Vercel; erro do **sharp** → **400**; `next.config.js` — `experimental.serverComponentsExternalPackages: ['sharp']`.
 - **Mensagem de erro no painel**: upload exibe `detail` da API quando existir.
+
+---
+
+### 2026-03-28 — Corrida base obrigatória + aprovação atômica (admin)
+
+- **Problema**: em `PATCH /api/admin/tenants/pending` (aprovar), a central e o plano eram gravados em transações **anteriores** à `ensureDefaultRideTypesForTenant`; se a criação do tipo padrão falhasse, a central podia ficar **aprovada sem** `TenantRideType`.
+- **Correção**: fluxo **approve** em **uma** única `$transaction`: update tenant, `tenant_users`, `tenant_plan` → `ensureDefaultRideTypesForTenant` no mesmo `tx`.
+- **`ensureDefaultRideTypesForTenant`**: ao final, `count` de tipos do tenant deve ser **≥ 1**; senão lança erro (falha a transação inteira).
+- **Produção `maidrive.com.br`**: deploy “Production” na Vercel costuma seguir a branch **`main`**; commits só em **`staging`** não atualizam o site público até **merge staging → main** (ou mudar a branch de produção nas Settings do projeto).
+- **Correção de dados antigos**: `POST /api/admin/backfill/ride-types` (master) ou `npm run db:backfill-ride-types` para centrais já aprovadas sem tipo.
