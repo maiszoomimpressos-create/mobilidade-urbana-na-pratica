@@ -9,10 +9,12 @@ import {
   RefreshControl,
 } from 'react-native'
 import { useColorScheme } from 'react-native'
+import { router } from 'expo-router'
 import { Colors } from '@/constants/Colors'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDriverStatus } from '@/contexts/DriverStatusContext'
 import { API_URL } from '@/lib/api'
+import { fetchDriverActiveRide, type ActiveRidePayload } from '@/lib/activeRide'
 
 interface RideRequest {
   id: string
@@ -22,6 +24,9 @@ interface RideRequest {
   distance: number
   estimatedFare: number
   createdAt: string
+  /** Central da corrida (taxas / tabela desta central). */
+  rideCentralName?: string
+  rideCentralSlug?: string
 }
 
 export default function RidesScreen() {
@@ -33,6 +38,7 @@ export default function RidesScreen() {
   const [rides, setRides] = useState<RideRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [activeRide, setActiveRide] = useState<ActiveRidePayload | null>(null)
 
   const fetchRides = useCallback(async () => {
     if (!session?.access_token || !isOnline) {
@@ -71,6 +77,23 @@ export default function RidesScreen() {
     }
   }, [fetchRides, isOnline])
 
+  const refreshActive = useCallback(async () => {
+    if (!session?.access_token || !isOnline) {
+      setActiveRide(null)
+      return
+    }
+    const r = await fetchDriverActiveRide(session.access_token)
+    setActiveRide(r)
+  }, [session?.access_token, isOnline])
+
+  useEffect(() => {
+    refreshActive()
+    const iv = isOnline ? setInterval(refreshActive, 8000) : null
+    return () => {
+      if (iv) clearInterval(iv)
+    }
+  }, [refreshActive, isOnline])
+
   const onRefresh = () => {
     setRefreshing(true)
     fetchRides()
@@ -88,8 +111,9 @@ export default function RidesScreen() {
       })
 
       if (response.ok) {
-        // Remover da lista e navegar para detalhes da corrida
         setRides((prev) => prev.filter((r) => r.id !== rideId))
+        await refreshActive()
+        router.push('/ride-map')
       }
     } catch (error) {
       console.error('Erro ao aceitar corrida:', error)
@@ -99,9 +123,16 @@ export default function RidesScreen() {
   const renderRideItem = ({ item }: { item: RideRequest }) => (
     <View style={[styles.rideCard, { backgroundColor: colors.backgroundSecondary }]}>
       <View style={styles.rideHeader}>
-        <Text style={[styles.passengerName, { color: colors.text }]}>
-          {item.passengerName}
-        </Text>
+        <View style={styles.rideHeaderLeft}>
+          <Text style={[styles.passengerName, { color: colors.text }]}>
+            {item.passengerName}
+          </Text>
+          {item.rideCentralName ? (
+            <Text style={[styles.centralLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+              Taxas: {item.rideCentralName}
+            </Text>
+          ) : null}
+        </View>
         <Text style={[styles.fare, { color: colors.tint }]}>
           R$ {item.estimatedFare.toFixed(2)}
         </Text>
@@ -166,6 +197,20 @@ export default function RidesScreen() {
         renderItem={renderRideItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          activeRide ? (
+            <TouchableOpacity
+              style={[styles.activeBanner, { backgroundColor: colors.tint }]}
+              onPress={() => router.push('/ride-map')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.activeBannerTitle}>Corrida em andamento</Text>
+              <Text style={styles.activeBannerSub} numberOfLines={2}>
+                {activeRide.destinationAddress ?? 'Ver rota no mapa'}
+              </Text>
+            </TouchableOpacity>
+          ) : null
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -201,6 +246,21 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
+  activeBanner: {
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+  },
+  activeBannerTitle: {
+    color: '#050505',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  activeBannerSub: {
+    color: '#1a1a1a',
+    fontSize: 13,
+    marginTop: 4,
+  },
   rideCard: {
     borderRadius: 16,
     padding: 16,
@@ -209,12 +269,21 @@ const styles = StyleSheet.create({
   rideHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 16,
+    gap: 8,
+  },
+  rideHeaderLeft: {
+    flex: 1,
+    minWidth: 0,
   },
   passengerName: {
     fontSize: 18,
     fontWeight: '600',
+  },
+  centralLabel: {
+    fontSize: 12,
+    marginTop: 4,
   },
   fare: {
     fontSize: 20,

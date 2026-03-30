@@ -29,6 +29,12 @@ model User {
   password      String?   // Hash da senha
   emailVerified DateTime?
   image         String?
+  /// Telefone com DDD (apenas dígitos ou formato livre), preenchido no cadastro web/app quando disponível.
+  phone         String?
+  /// Endereço informado no cadastro (texto completo).
+  homeAddress   String?   @db.Text
+  homeLatitude  Decimal?  @db.Decimal(10, 8)
+  homeLongitude Decimal?  @db.Decimal(11, 8)
   /// Classificação principal da conta (admin plataforma, motorista, passageiro, etc.).
   accountKind   UserAccountKind @default(STANDARD)
   createdAt     DateTime  @default(now())
@@ -597,7 +603,9 @@ model Ride {
   finalPrice     Decimal?  @db.Decimal(10, 2)
   distance       Decimal?  @db.Decimal(10, 2) // em km
   duration       Int?      // em minutos
-  
+  /// GeoJSON-style: [{ "latitude": number, "longitude": number }, ...] rota origem → destino
+  tripRouteCoords Json?
+
   // Timestamps
   requestedAt    DateTime  @default(now())
   acceptedAt     DateTime?

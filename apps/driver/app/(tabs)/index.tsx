@@ -50,6 +50,11 @@ export default function HomeScreen() {
           <Text style={[styles.name, { color: colors.text }]}>
             {driver?.name || 'Carregando...'}
           </Text>
+          {driver?.linkedCentral?.name || driver?.tenantName ? (
+            <Text style={[styles.linkedCentral, { color: colors.textSecondary }]} numberOfLines={1}>
+              Central: {driver.linkedCentral?.name ?? driver.tenantName}
+            </Text>
+          ) : null}
         </View>
         <View style={styles.ratingContainer}>
           <Text style={styles.ratingStar}>⭐</Text>
@@ -165,6 +170,10 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 24,
     fontWeight: 'bold',
+    marginTop: 4,
+  },
+  linkedCentral: {
+    fontSize: 13,
     marginTop: 4,
   },
   ratingContainer: {

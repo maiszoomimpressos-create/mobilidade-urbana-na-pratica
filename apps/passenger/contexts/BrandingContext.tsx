@@ -13,6 +13,8 @@ import {
 
 type BrandingContextType = {
   branding: BrandingConfig
+  /** True após carregar override/slug do armazenamento (evita race com seleção por GPS). */
+  brandingReady: boolean
   setTenantFromSlug: (slug: string) => Promise<void>
   availableTenants: AvailableTenant[]
   canSwitchTenant: boolean
@@ -34,6 +36,7 @@ const defaultBranding: BrandingConfig = {
 
 const BrandingContext = createContext<BrandingContextType>({
   branding: defaultBranding,
+  brandingReady: false,
   setTenantFromSlug: async () => {},
   availableTenants: [],
   canSwitchTenant: false,
@@ -50,6 +53,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   const [canSwitchTenant, setCanSwitchTenant] = useState(false)
   const [isMaster, setIsMaster] = useState(false)
   const [hasOverride, setHasOverride] = useState(false)
+  const [brandingReady, setBrandingReady] = useState(false)
 
   const loadBranding = useCallback(async (slug: string) => {
     const config = await fetchBranding(slug)
@@ -59,17 +63,23 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false
     const init = async () => {
-      const override = await getTenantOverride()
-      if (override) {
-        setHasOverride(true)
-        if (!cancelled) await loadBranding(override)
-      } else {
-        const slug = await getStoredTenantSlug()
-        if (!cancelled) await loadBranding(slug || 'mai-drive')
+      try {
+        const override = await getTenantOverride()
+        if (override) {
+          setHasOverride(true)
+          if (!cancelled) await loadBranding(override)
+        } else {
+          const slug = await getStoredTenantSlug()
+          if (!cancelled) await loadBranding(slug || 'mai-drive')
+        }
+      } finally {
+        if (!cancelled) setBrandingReady(true)
       }
     }
     init()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [loadBranding])
 
   const setTenantFromSlug = useCallback(async (slug: string) => {
@@ -101,6 +111,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
     <BrandingContext.Provider
       value={{
         branding,
+        brandingReady,
         setTenantFromSlug,
         availableTenants,
         canSwitchTenant,

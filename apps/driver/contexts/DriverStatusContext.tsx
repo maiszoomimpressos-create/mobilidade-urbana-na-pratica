@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
+import * as Location from 'expo-location'
 import { useAuth } from './AuthContext'
 import { API_URL } from '@/lib/api'
+import { postDriverLocation } from '@/lib/activeRide'
 
 interface DriverStatusContextType {
   isOnline: boolean
@@ -15,6 +17,55 @@ const DriverStatusContext = createContext<DriverStatusContextType | undefined>(u
 export function DriverStatusProvider({ children }: { children: React.ReactNode }) {
   const { session, driver, refreshDriver } = useAuth()
   const [isUpdating, setIsUpdating] = useState(false)
+  const isOnline = driver?.isOnline ?? false
+  const watchRef = useRef<Location.LocationSubscription | null>(null)
+
+  useEffect(() => {
+    if (!session?.access_token || !isOnline) {
+      watchRef.current?.remove()
+      watchRef.current = null
+      return
+    }
+
+    let cancelled = false
+
+    ;(async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      if (cancelled || status !== 'granted') return
+
+      const sub = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          distanceInterval: 12,
+          timeInterval: 8000,
+        },
+        async (loc) => {
+          try {
+            await postDriverLocation(session.access_token!, {
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+              accuracy: loc.coords.accuracy ?? undefined,
+              heading: loc.coords.heading ?? undefined,
+              speed: loc.coords.speed ?? undefined,
+            })
+          } catch {
+            /* rede */
+          }
+        }
+      )
+      if (cancelled) {
+        sub.remove()
+        return
+      }
+      watchRef.current = sub
+    })()
+
+    return () => {
+      cancelled = true
+      watchRef.current?.remove()
+      watchRef.current = null
+    }
+  }, [session?.access_token, isOnline])
 
   const updateStatus = useCallback(async (online: boolean) => {
     if (!session?.access_token || !driver) return
@@ -55,7 +106,7 @@ export function DriverStatusProvider({ children }: { children: React.ReactNode }
   return (
     <DriverStatusContext.Provider
       value={{
-        isOnline: driver?.isOnline ?? false,
+        isOnline,
         isUpdating,
         toggleOnlineStatus,
         setOnline,

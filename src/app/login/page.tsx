@@ -33,6 +33,14 @@ export default function LoginPage() {
       }
 
       if (data.session) {
+        await fetch('/api/auth/sync-passenger-registration', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${data.session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
+        }).catch(() => {})
         await new Promise((r) => setTimeout(r, 300))
         router.push('/')
         router.refresh()

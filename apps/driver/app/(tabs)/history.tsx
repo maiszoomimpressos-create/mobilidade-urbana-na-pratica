@@ -22,6 +22,7 @@ interface Ride {
   fare: number
   status: 'completed' | 'cancelled'
   completedAt: string
+  rideCentralName?: string
 }
 
 export default function HistoryScreen() {
@@ -100,6 +101,12 @@ export default function HistoryScreen() {
           {formatDate(item.completedAt)}
         </Text>
       </View>
+
+      {item.rideCentralName ? (
+        <Text style={[styles.centralLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+          Central: {item.rideCentralName}
+        </Text>
+      ) : null}
 
       <View style={styles.addressContainer}>
         <View style={styles.addressRow}>
@@ -210,6 +217,10 @@ const styles = StyleSheet.create({
   },
   date: {
     fontSize: 12,
+  },
+  centralLabel: {
+    fontSize: 11,
+    marginBottom: 8,
   },
   addressContainer: {
     gap: 8,

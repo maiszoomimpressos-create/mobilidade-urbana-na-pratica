@@ -742,3 +742,101 @@ ALTER TABLE tenant_ride_types
 
 - **Problema**: 500 em `/api/partner/ride-types/image-upload` mesmo com `SUPABASE_SERVICE_ROLE_KEY` — **sharp** costuma falhar em serverless; **`listBuckets`** pode falhar em alguns projetos Supabase.
 - **Correção**: `runtime = 'nodejs'`; **sharp** só via `import()`; se falhar, envia **JPEG/PNG/WebP original** (até 5MB); bucket com **`createBucket` idempotente** (ignora “já existe”), sem depender de `listBuckets`; respostas **502** com `detail` vindo do Storage; **500** com `detail` truncado do erro.
+
+---
+
+### 2026-03-28 — Motorista: corridas multi-central + taxas da central da corrida
+
+- **Objetivo**: motorista permanece vinculado à **central de cadastro** (`drivers.tenantId`), mas pode **ver e aceitar** corridas de **qualquer** central ativa; o valor exibido segue o que já está na corrida (`estimatedPrice` / tipo ligado a `ride.tenantId`).
+- **Implementado (backend)**:
+  - `src/lib/app-driver-bearer-auth.ts` — autenticação Bearer + motorista ativo.
+  - `GET /api/app/driver/rides/available` — `PENDING`, sem `driverId`, **sem** filtro por `driver.tenantId`; só centrais `isActive` + `approvalStatus: approved`; resposta inclui `rideCentralName` / `rideCentralSlug` / `rideTenantId`.
+  - `POST /api/app/driver/rides/[id]/accept` — aceite **sem** exigir igualdade de tenant; `updateMany` atômico + `ride_status_history`; bloqueio se já existir corrida `ACCEPTED` ou `IN_PROGRESS` para o motorista; exige motorista `online`.
+  - `GET /api/app/driver/rides/history` — histórico do motorista com central da corrida.
+  - `GET /api/app/driver/me` — campo `linkedCentral` (id, name, slug) espelhando a central de vínculo; documentação no comentário da rota.
+- **Implementado (frontend app motorista)**:
+  - `rides.tsx` — linha “Taxas: {central}”; `history.tsx` — “Central: …”; `index.tsx` — “Central: …” no header; `AuthContext` tipos para `tenantName` / `linkedCentral`.
+- **SQL aplicado**: nenhum (modelo já tinha `Ride.tenantId` e preços na corrida).
+- **Pendente**: testar E2E com corridas criadas no banco (ainda não há `POST` passageiro criando `Ride` no repo); quando existir, garantir que o cálculo de preço na criação use sempre o tenant da solicitação.
+- **Próximo passo**: endpoint passageiro para criar corrida (se ainda faltar) e fluxo iniciar/concluir corrida no app motorista.
+
+---
+
+### 2026-03-28 — Passageiro: sugestão de endereço (GPS) + central mais próxima
+
+- **Objetivo**: (1) sugerir endereços enquanto o passageiro digita, com **viés pela localização**; (2) escolher automaticamente a **central** cuja cidade de atuação está **mais próxima** do GPS (tipos de corrida e slug alinhados), sem sobrescrever **override** manual do seletor de central.
+- **Implementado (backend)**:
+  - `src/lib/geo-haversine.ts` — distância em km entre coordenadas.
+  - `GET /api/app/tenants/nearest?latitude=&longitude=` — centrais ativas/aprovadas com cidade georreferenciada, ordenadas pela menor distância até o ponto; inclui `primaryCityId` da cidade mais próxima de cada central.
+  - `GET /api/app/address-autocomplete?input=&latitude=&longitude=&tenantSlug=` — Bearer Supabase obrigatório; usa `MapProviderManager` (Google Places Autocomplete `geocode` + bias `location`/`radius`, ou Mapbox forward + `proximity`, fallback Nominatim com **User-Agent** configurável via `NOMINATIM_USER_AGENT`).
+- **Implementado (frontend passageiro)**:
+  - `BrandingContext`: `brandingReady` após hidratar override/slug do AsyncStorage.
+  - `DestinoComSugestoes` + `lib/addressAutocomplete.ts` / `lib/nearestTenant.ts`.
+  - `app/(tabs)/index.tsx` — GPS para nearest central + `cityId` dos tipos de corrida; campos de destino com lista de sugestões; coordenadas reutilizadas em “Sem destino”.
+- **Pendente**: testar com chave Google/Mapbox ativa e política de uso do Nominatim em produção; modal `RideRequestCard` ainda sem autocomplete (só tela inicial).
+- **Próximo passo**: Place Details ao selecionar sugestão Google (se precisar lat/lng exatos na criação da corrida).
+
+---
+
+### 2026-03-28 — Tarifa por central, rota no mapa e rastreamento passageiro ↔ motorista
+
+- **Objetivo**: calcular valor da corrida com **TenantRideType** (bandeira + km + min) a partir de **rota real**; desenhar **trajeto** no mapa; motorista mais próximo (se online com posição); **acompanhar** motorista (rota aproximação + posição) no app passageiro e **mesma rota + embarque/destino** no app motorista.
+- **Banco**: `rides.tripRouteCoords` (JSON, lista `{ latitude, longitude }`). **Aplicar**: `npx prisma db push` (ou migração equivalente) no ambiente.
+- **Backend**:
+  - `src/lib/polyline-decode.ts`, `src/lib/maps/directions-route.ts` — Google Directions / Mapbox Directions / fallback **OSRM** público.
+  - `src/lib/ride-pricing.ts`, `src/lib/dispatch-nearest-driver.ts`, `src/lib/tenant-resolve-app.ts`.
+  - `POST /api/app/rides/estimate` — preço + `tripRouteCoords` (público).
+  - `POST /api/app/rides` — cria corrida, grava rota/preço, **atribui** motorista online com última posição em até **50 km** (status `ACCEPTED` + `acceptedAt`); senão `PENDING`.
+  - `POST /api/app/passenger/ensure` — garante `Passenger` para o tenant (slug / `mai-drive` → primeira central).
+  - `GET /api/app/rides/[id]/track` — passageiro: status, `tripRouteCoords`, `approachRouteCoords` (motorista→embarque, cache ~12s), `driverPosition`.
+  - `POST /api/app/driver/location` — grava `driver_positions`.
+  - `GET /api/app/driver/rides/active` — corrida `ACCEPTED` | `IN_PROGRESS` do motorista.
+- **App passageiro**: destinos com **lat/lng** ao escolher sugestão; `CityMap` com **Polyline** (viagem azul, aproximação laranja) + marcador motorista; polling **4s** em corrida ativa; botão chamar chama `POST /api/app/rides`.
+- **App motorista**: `watchPosition` ao **online** envia localização à API; tela **`/ride-map`** (modal) com rota + embarque + destino; aba **Corridas** com banner de corrida ativa; após **aceitar**, navega ao mapa.
+- **Pendente**: fluxo `IN_PROGRESS`/`COMPLETED` (iniciar/finalizar); Place Details Google para sugestões só com texto; volume OSRM / política de uso em produção.
+- **Próximo passo**: WebSocket ou Supabase Realtime para posição em tempo real (substituir ou complementar polling).
+
+---
+
+### 2026-03-29 — Builds: Next + EAS Android (passageiro e motorista)
+
+- **Objetivo**: validar produção web/API e gerar APKs preview nos dois apps Expo.
+- **Implementado (CI local)**:
+  - Raiz: `npm run build` (`prisma generate` + `next build`) — sucesso; avisos apenas de CSR em `/parceiro` e `/esqueci-senha`.
+  - `apps/passenger`: `npx eas-cli build --platform android --profile preview --non-interactive` — sucesso.
+  - `apps/driver`: mesmo comando — sucesso.
+- **Links de instalação (Expo)**:
+  - Passageiro: https://expo.dev/accounts/maiszoom/projects/passenger/builds/116ad062-abc5-4143-9dc5-25903ddb8519
+  - Motorista: https://expo.dev/accounts/maiszoom/projects/driver/builds/17d83fa7-9c58-4e97-b4b9-2b19f78a0cb0
+- **Observações**: EAS avisou que `cli.appVersionSource` será obrigatório no futuro; build **driver** não carregou variáveis do ambiente `preview` no EAS (diferente do passageiro) — conferir se `.env` / secrets locais cobrem o necessário no aparelho.
+- **Pendente**: instalar os dois APKs e smoke test (login, mapa, corrida); aplicar `rides.tripRouteCoords` no banco de produção se ainda não aplicado.
+- **Próximo passo**: configurar `appVersionSource` no `eas.json` quando for prioridade; alinhar env `preview` do projeto **driver** no dashboard EAS se faltar chave pública.
+
+---
+
+### 2026-03-28 — Cadastro web (/register): telefone (DDD), endereço e central
+
+- **Objetivo**: no cadastro de **passageiro**, exigir **celular com DDD** (máscara), **endereço** com sugestões (Nominatim), identificar **centrais** que atendem o município; se não houver, permitir cadastro e **sugerir a central mais próxima** (ou primeira central ativa como último recurso).
+- **Implementado (banco)**: `users.phone`, `users.homeAddress`, `users.homeLatitude`, `users.homeLongitude` (opcionais). **Aplicar**: `npx prisma db push` (ou migração) no ambiente.
+- **Implementado (backend)**:
+  - `src/lib/tenants-nearest.ts` — lógica compartilhada de “centrais próximas”; `GET /api/app/tenants/nearest` refatorado para usar isso.
+  - `GET /api/public/geocode-search?q=` — busca de endereço (Brasil) para o formulário.
+  - `POST /api/public/tenants-at-address` — corpo `{ latitude, longitude }`: cruza município (reverse Nominatim + cidades no banco) com `tenant_cities`; responde `tenantsAtLocation`, `nearestTenants`, `suggestedTenant`, `suggestionReason`.
+  - `POST /api/auth/sync-passenger-registration` — Bearer: grava telefone/endereço no `User`, cria `User` se ainda não existir, `ensurePassengerForTenant` com `preferred_tenant_slug` (metadata ou body).
+- **Implementado (frontend)**:
+  - `src/app/register/page.tsx` — passageiro: telefone mascarado, endereço com lista, bloco de centrais; metadata Supabase `phone`, `home_address`, `home_lat`, `home_lng`, `preferred_tenant_slug`; motorista (`?intent=driver`): só telefone extra.
+  - `src/app/login/page.tsx` — após login, chama sync para aplicar metadata (ex.: cadastro com confirmação por e-mail).
+- **Pendente**: política de uso Nominatim em produção (debounce já no cliente; configurar `NOMINATIM_USER_AGENT`); eventual Place Details Google para endereços mais precisos.
+- **Próximo passo**: exibir telefone/endereço no admin do usuário, se desejado.
+
+---
+
+### 2026-03-28 — Cadastro: localização (GPS) + CEP (ViaCEP)
+
+- **Objetivo**: além do endereço por texto, permitir **“Usar minha localização”** (GPS do navegador) e **CEP** (ViaCEP) para identificar cidade/UF e sugerir centrais sem digitar o endereço completo.
+- **Implementado**:
+  - `POST /api/public/tenants-resolve-region` — aceita `{ latitude, longitude }`, `{ cep }` ou `{ cityName, stateUf }`; responde com o mesmo payload de centrais + `addressLabel` e `source`.
+  - `src/lib/tenants-at-address.ts` — `resolveTenantsFromCityAndUf` (geocodifica centro do município via Nominatim e reutiliza `resolveTenantsAtAddress`).
+  - `src/lib/viacep-public.ts`, `src/lib/cep-br.ts` — consulta ViaCEP e máscara de CEP.
+  - `PassengerAddressFields` — botão GPS, campo CEP + “Buscar CEP”, texto explicativo; fluxo de endereço completo mantido.
+- **Pendente**: HTTPS obrigatório para geolocalização em produção; política de uso ViaCEP/Nominatim.

@@ -19,6 +19,10 @@ interface Driver {
   isOnline: boolean
   isApproved: boolean
   createdAt: string
+  /** Central de cadastro / vínculo (corridas podem ser de outras centrais). */
+  tenantName?: string
+  tenantSlug?: string
+  linkedCentral?: { id: string; name: string; slug: string }
 }
 
 interface AuthContextType {

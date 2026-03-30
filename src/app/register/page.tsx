@@ -7,6 +7,24 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { formatPhoneBrInput, digitsOnly, isValidBrazilPhoneDigits } from '@/lib/phone-br'
+import {
+  PassengerAddressFields,
+  type TenantResolvePayload,
+} from '@/components/register/PassengerAddressFields'
+
+type GeocodeHit = { label: string; latitude: number; longitude: number }
+
+async function syncPassengerRegistration(accessToken: string, body: Record<string, unknown>) {
+  await fetch('/api/auth/sync-passenger-registration', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+}
 
 /**
  * Cadastro web: por padrão grava user_type passenger (alinhado a users.accountKind).
@@ -21,8 +39,15 @@ function RegisterForm() {
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+
+  const [addressInput, setAddressInput] = useState('')
+  const [selectedPlace, setSelectedPlace] = useState<GeocodeHit | null>(null)
+  const [tenantResolve, setTenantResolve] = useState<TenantResolvePayload | null>(null)
+  const [tenantSlug, setTenantSlug] = useState('')
+
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -40,6 +65,22 @@ function RegisterForm() {
       return
     }
 
+    if (!isValidBrazilPhoneDigits(phone)) {
+      setError('Informe um telefone com DDD (10 ou 11 dígitos).')
+      return
+    }
+
+    if (!isDriverIntent) {
+      if (!selectedPlace) {
+        setError('Selecione um endereço na lista de sugestões.')
+        return
+      }
+      if (!tenantSlug.trim()) {
+        setError('Selecione ou confirme a central de atendimento.')
+        return
+      }
+    }
+
     setIsLoading(true)
 
     try {
@@ -52,6 +93,9 @@ function RegisterForm() {
         )
         return
       }
+
+      const phoneDigits = digitsOnly(phone)
+
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -59,6 +103,15 @@ function RegisterForm() {
           data: {
             full_name: name.trim() || undefined,
             user_type: signupUserType,
+            phone: phoneDigits,
+            ...(isDriverIntent
+              ? {}
+              : selectedPlace && {
+                  home_address: selectedPlace.label,
+                  home_lat: selectedPlace.latitude,
+                  home_lng: selectedPlace.longitude,
+                  preferred_tenant_slug: tenantSlug.trim(),
+                }),
           },
         },
       })
@@ -72,9 +125,23 @@ function RegisterForm() {
         return
       }
 
+      if (data.session?.access_token && !isDriverIntent && selectedPlace) {
+        await syncPassengerRegistration(data.session.access_token, {
+          phone: phoneDigits,
+          homeAddress: selectedPlace.label,
+          homeLatitude: selectedPlace.latitude,
+          homeLongitude: selectedPlace.longitude,
+          tenantSlug: tenantSlug.trim(),
+        })
+      } else if (data.session?.access_token && isDriverIntent) {
+        await syncPassengerRegistration(data.session.access_token, { phone: phoneDigits })
+      }
+
       if (data.user && !data.session) {
-        setError('Conta criada. Verifique seu email para confirmar (se habilitado) e faça login.')
-        setTimeout(() => router.push('/login'), 2000)
+        setError(
+          'Conta criada. Verifique seu email para confirmar (se habilitado) e faça login. Telefone, endereço e central serão aplicados ao entrar.'
+        )
+        setTimeout(() => router.push('/login'), 2800)
         return
       }
 
@@ -94,7 +161,7 @@ function RegisterForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10">
       <div className="w-full max-w-md space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
@@ -143,6 +210,33 @@ function RegisterForm() {
                 placeholder="Seu nome"
               />
             </div>
+            <div>
+              <Label htmlFor="phone">Celular (com DDD)</Label>
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                autoComplete="tel-national"
+                required
+                value={phone}
+                onChange={(e) => setPhone(formatPhoneBrInput(e.target.value))}
+                className="mt-1"
+                placeholder="(11) 98765-4321"
+                maxLength={16}
+              />
+            </div>
+            {!isDriverIntent && (
+              <PassengerAddressFields
+                addressInput={addressInput}
+                setAddressInput={setAddressInput}
+                selectedPlace={selectedPlace}
+                setSelectedPlace={setSelectedPlace}
+                tenantResolve={tenantResolve}
+                setTenantResolve={setTenantResolve}
+                tenantSlug={tenantSlug}
+                setTenantSlug={setTenantSlug}
+              />
+            )}
             <div>
               <Label htmlFor="email">Email</Label>
               <Input

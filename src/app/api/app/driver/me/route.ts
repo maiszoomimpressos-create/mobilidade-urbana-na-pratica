@@ -11,6 +11,9 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
  * GET /api/app/driver/me
  * Retorna o perfil de motorista do usuário autenticado.
  * Se não tiver perfil de motorista, retorna null (o app pode chamar /register para criar).
+ *
+ * `tenantId` / `linkedCentral`: central de cadastro (vínculo). Corridas podem ser de outras centrais;
+ * preço da corrida segue a central da corrida (`ride.tenantId`), não necessariamente esta.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -64,6 +67,11 @@ export async function GET(request: NextRequest) {
         tenantId: driver.tenantId,
         tenantName: driver.tenant.name,
         tenantSlug: driver.tenant.slug,
+        linkedCentral: {
+          id: driver.tenant.id,
+          name: driver.tenant.name,
+          slug: driver.tenant.slug,
+        },
         status: driver.status,
         isActive: driver.isActive,
         rating: driver.rating ? Number(driver.rating) : null,
