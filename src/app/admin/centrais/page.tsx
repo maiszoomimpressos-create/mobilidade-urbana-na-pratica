@@ -41,7 +41,7 @@ export default function CentraisPage() {
   async function loadTenants() {
     try {
       setLoading(true)
-      const res = await fetch('/api/admin/tenants')
+      const res = await fetch('/api/admin/centrais')
       if (!res.ok) {
         if (res.status === 403) {
           setError('Você não tem permissão para acessar esta página.')

@@ -42,7 +42,6 @@ export async function GET() {
     }
 
     const tenants = await prisma.tenant.findMany({
-      where: { isActive: true },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -61,6 +60,12 @@ export async function GET() {
         wlDriverApkUrl: true,
         wlBuildStatus: true,
         wlLastBuildAt: true,
+        _count: {
+          select: {
+            drivers: true,
+            passengers: true,
+          },
+        },
         tenantCities: {
           where: { isActive: true },
           orderBy: { createdAt: 'desc' },
@@ -95,6 +100,10 @@ export async function GET() {
         wlDriverApkUrl: tenant.wlDriverApkUrl,
         wlBuildStatus: tenant.wlBuildStatus,
         wlLastBuildAt: tenant.wlLastBuildAt,
+        _count: {
+          drivers: tenant._count.drivers,
+          passengers: tenant._count.passengers,
+        },
         linkedCities: tenant.tenantCities
           .map((item) => item.city)
           .filter((city): city is { id: string; name: string; state: string } => Boolean(city)),
