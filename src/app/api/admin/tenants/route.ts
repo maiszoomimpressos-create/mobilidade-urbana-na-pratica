@@ -6,6 +6,46 @@ import { ensureDefaultRideTypesForTenant } from '@/lib/tenant-default-ride-types
 export const dynamic = 'force-dynamic'
 const PASSENGER_ADS_FEATURE_SLUG = 'passenger_advertising'
 
+/** Logs completos no servidor; JSON `details` só fora de produção (ou com ADMIN_API_ERROR_DETAILS=1). */
+function exposeAdminErrorDetails(): boolean {
+  if (process.env.ADMIN_API_ERROR_DETAILS === '1') return true
+  if (process.env.NODE_ENV === 'development') return true
+  if (process.env.VERCEL_ENV === 'preview') return true
+  return false
+}
+
+function formatAdminRouteError(error: unknown): {
+  log: Record<string, unknown>
+  details?: { message: string; code?: string; name: string }
+} {
+  const log: Record<string, unknown> = {}
+  let message = 'Unknown error'
+  let name = 'Error'
+  let code: string | undefined
+
+  if (error instanceof Error) {
+    message = error.message
+    name = error.name
+    log.message = error.message
+    log.name = error.name
+    if (error.stack) log.stack = error.stack
+    const known = error as Error & { code?: string; meta?: unknown }
+    if (typeof known.code === 'string') {
+      code = known.code
+      log.code = known.code
+    }
+    if (known.meta !== undefined) log.meta = known.meta
+  } else {
+    message = String(error)
+    log.raw = message
+  }
+
+  const details = exposeAdminErrorDetails()
+    ? { message, code, name }
+    : undefined
+  return { log, details }
+}
+
 function slugify(value: string): string {
   return value
     .normalize('NFD')
@@ -111,9 +151,13 @@ export async function GET() {
       })),
     })
   } catch (error) {
-    console.error('[admin/tenants] GET', error)
+    const { log, details } = formatAdminRouteError(error)
+    console.error('[admin/tenants] GET', log)
     return NextResponse.json(
-      { error: 'Erro ao listar centrais' },
+      {
+        error: 'Erro ao listar centrais',
+        ...(details ? { details } : {}),
+      },
       { status: 500 }
     )
   }
@@ -336,9 +380,13 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-    console.error('[admin/tenants] POST', error)
+    const { log, details } = formatAdminRouteError(error)
+    console.error('[admin/tenants] POST', log)
     return NextResponse.json(
-      { error: 'Erro ao criar central' },
+      {
+        error: 'Erro ao criar central',
+        ...(details ? { details } : {}),
+      },
       { status: 500 }
     )
   }

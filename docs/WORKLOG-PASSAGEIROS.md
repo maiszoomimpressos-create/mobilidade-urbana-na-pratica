@@ -840,3 +840,306 @@ ALTER TABLE tenant_ride_types
   - `src/lib/viacep-public.ts`, `src/lib/cep-br.ts` — consulta ViaCEP e máscara de CEP.
   - `PassengerAddressFields` — botão GPS, campo CEP + “Buscar CEP”, texto explicativo; fluxo de endereço completo mantido.
 - **Pendente**: HTTPS obrigatório para geolocalização em produção; política de uso ViaCEP/Nominatim.
+
+---
+
+### 2026-03-28 — App motorista: estabilidade no Android (mapa + tipos)
+
+- **Objetivo**: reduzir **fechamentos** do Mai Drive Motorista no Android (falhas ao abrir corrida no mapa ou ao renderizar dados da API).
+- **Implementado (Expo/Android)**:
+  - `apps/driver/app.config.js` — injeta `android.config.googleMaps.apiKey` a partir de `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` (necessário para `react-native-maps` em release); aviso no build se a variável estiver vazia.
+  - `apps/driver/app.json` — removidos `ACCESS_BACKGROUND_LOCATION` e permissão “sempre” do plugin `expo-location` (fluxo em primeiro plano).
+- **Implementado (app)**:
+  - `apps/driver/lib/numbers.ts` — `formatMoney`, `formatKm`, `formatRating`, etc., tolerantes a string/`Decimal` da API.
+  - Telas `index`, `profile`, `rides`, `history`, `ride-map` — deixam de chamar `.toFixed()` em valores que podem não ser `number`.
+  - `AuthContext` — `Driver.rating` como `number | null` e normalização ao carregar `/me` e após registro.
+- **SQL aplicado**: nenhum.
+- **Status atual**: `npx expo config` em `apps/driver` confirma merge do `googleMaps.apiKey` quando a env está definida localmente.
+- **Pendente**: definir **`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`** no projeto **driver** no EAS (preview/production), gerar **novo** build Android e testar login → abas → **Corrida no mapa** após aceitar; se ainda fechar, capturar stack com “Ver resumo” / `adb logcat`.
+- **Próximo passo**: alinhar variáveis `preview` do motorista ao passageiro no dashboard Expo; smoke test completo no APK novo.
+
+---
+
+### 2026-03-30 — App motorista: env no EAS + tentativa de build
+
+- **Objetivo**: garantir que o build `driver` (profile `preview`) inclua `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` e demais envs públicas necessárias.
+- **Implementado (backend)**: n/a
+- **Implementado (frontend)**: n/a
+- **SQL aplicado**: nenhum.
+- **Status atual**: tentativa de `eas build` falhou por **limite do plano Free Android** (quota do mês); `apps/driver/eas.json` atualizado para injetar envs no profile `preview`.
+- **Pendente**: quando o quota resetar (ou com plano pago), gerar novo APK `preview` do motorista e validar login → mapa da corrida.
+- **Próximo passo**: você re-dispara o build no dia do reset e, se quiser evitar espera, considerar upgrade do plano EAS para builds Android.
+
+---
+
+### 2026-03-30 — EAS conta `maiszoom2`: APKs preview (motorista + passageiro)
+
+- **Objetivo**: gerar builds Android `preview` sem depender da quota da conta `maiszoom`; projetos Expo novos em **maiszoom2**.
+- **Implementado**:
+  - `apps/driver`: `eas init` → `@maiszoom2/driver` (project ID `07d1720e-f176-470a-b02e-ae5ed36aca16`); `updates.url` + `owner` em `app.json`; envs do profile `preview` em `eas.json` (como antes).
+  - `apps/passenger`: removido `projectId` fixo antigo de `app.config.js`; projeto `@maiszoom2/passenger` (ID `2b0cc7e0-849f-46bc-bb6a-44602e11b7e5`); `app.json` + `app.config.js` alinhados; envs em `eas.json` profile `preview`.
+- **Builds concluídos (APK)**:
+  - Motorista — página: https://expo.dev/accounts/maiszoom2/projects/driver/builds/74497c55-e078-4599-b769-8733e1d49b54 — artefato: https://expo.dev/artifacts/eas/fmRLoXBS4SxFJFXva2bZfC.apk
+  - Passageiro — página: https://expo.dev/accounts/maiszoom2/projects/passenger/builds/c517a5f6-25e5-423b-ab9e-11c29f2cf6a5 — artefato: https://expo.dev/artifacts/eas/qkAoaUw1XZsPRgzHxyBdpF.apk
+- **Observação**: keystores Android gerados na nuvem pela Expo para estes projetos (conta nova); builds anteriores da conta `maiszoom` não se misturam com esses APKs.
+- **Próximo passo**: instalar os dois APKs e smoke test; se o site usar `NEXT_PUBLIC_PASSENGER_APP_APK_URL`, atualizar para o link novo do passageiro.
+
+---
+
+### 2026-03-30 — App motorista: mapa na home + carregamento do nome
+
+- **Objetivo**: mapa real na tela inicial (em vez de placeholder cinza); menos “Carregando...”; nome vindo também do `User` Prisma quando metadata Supabase está vazia.
+- **Implementado (app)**: `apps/driver/app/(tabs)/index.tsx` — `MapView` + marcador e círculo de precisão; `apps/driver/app.config.js` — plugin `react-native-maps` com mesma API key; `apps/driver/contexts/AuthContext.tsx` — `getSession` aguarda `fetchDriver` antes de `setLoading(false)`; fallback de nome via metadata Supabase no cliente.
+- **Implementado (backend)**: `GET /api/app/driver/me` — fallback de `name` com `prisma.user` (`name`) e e-mail.
+- **Pendente**: novo build EAS do motorista para incluir o plugin nativo do Maps; publicar API (Vercel) para a rota `/me` atualizada.
+
+---
+
+### 2026-03-30 — App motorista: home — Online só texto + lucros um pouco maiores
+
+- **Objetivo**: pill superior **Online/Offline** sem bolinha (apenas texto com cor); chip **Lucros do dia** e painel expandido com tipografia e área um pouco maiores.
+- **Implementado (app)**: `apps/driver/app/(tabs)/index.tsx` — removido `onlineTopDot`; texto usa `colors.online` / `colors.textSecondary`; `profitChip` `maxWidth` 180, labels 10px / valor 13px; popover com padding e fontes levemente maiores; ícones carteira/chevron/olho +1px.
+- **SQL aplicado**: nenhum.
+- **Pendente**: validar em aparelho pequeno se foto + chip + Online + menu não quebram linha.
+- **Próximo passo**: smoke test na home após `npx expo start` no app motorista.
+
+---
+
+### 2026-03-30 — App motorista: home — Online junto ao menu + olho maior
+
+- **Objetivo**: reduzir o espaço entre **Online** e o **menu**; aumentar o botão **olho** (privacidade dos valores).
+- **Implementado (app)**: `index.tsx` — `Online` e menu hambúrguer agrupados em `topBarRight` (gap 8); chip de lucros permanece só na área central; olho com área **44×44**, ícone **22px**, borda e cantos alinhados ao botão do menu.
+
+---
+
+### 2026-03-30 — App motorista: home — sem olho; lucros sempre visíveis
+
+- **Objetivo**: remover o botão **olho**; exibir sempre o chip **Lucros do dia** com valores; aproximar **Online** do menu.
+- **Implementado (app)**: `apps/driver/app/(tabs)/index.tsx` — removidos estado `earningsVisible`, `moneyLine` mascarado e `profitEyeBtn`; chip inteiro é um `TouchableOpacity` (carteira + texto + chevron); `formatMoneyBrl` via `formatMoney` de `lib/numbers`; chip um pouco maior (`maxWidth` 220, label 11px, valor 15px); `topBarRight` gap **4**.
+
+---
+
+### 2026-03-30 — App motorista: home — olho dentro do retângulo (privacidade)
+
+- **Objetivo**: voltar a ocultar valores com o **olho**, mantendo o mesmo tamanho do chip (`maxWidth` 220, `minHeight` 46).
+- **Implementado (app)**: `index.tsx` — `View` com `profitChip` envolve área principal (`profitChipMain` = expandir) + `profitEyeBtn` (32×36, ícone 18) à direita **dentro** do retângulo; `moneyLine` no chip e no popover.
+
+---
+
+### 2026-03-30 — App motorista: foto + menu hambúrguer em todas as abas
+
+- **Objetivo**: manter **foto do perfil** (atalho para Perfil) e **menu** (dropdown com Corridas, Histórico, Ganhos, Perfil, Sair) em todas as telas principais, além da **tab bar** inferior.
+- **Implementado (app)**:
+  - `components/DriverAppTopBar.tsx` — avatar, título ou `centerSlot`/`rightSlot`, botão menu + `DriverAppMenuModal`.
+  - `components/DriverAppMenuModal.tsx` — modal extraído da home.
+  - `lib/profileDisplay.ts` — `driverDisplayName`, `avatarUri` compartilhados.
+  - `(tabs)/_layout.tsx` — `headerShown: false` nas abas que passam a usar a barra customizada.
+  - `rides`, `history`, `earnings`, `profile` — barra com título; `index` — `DriverAppTopBar` com slots (lucros + Online); `ride-map` — barra absoluta com título “Corrida”, botão fechar antes do menu.
+
+---
+
+### 2026-03-30 — App motorista: menu na tela Perfil
+
+- **Objetivo**: no menu hambúrguer, **não** mostrar “Perfil” quando o usuário já está em Perfil; mostrar **Início** no lugar.
+- **Implementado (app)**: `components/DriverAppMenuModal.tsx` — `useSegments()` + `segments.includes('profile')`; item “Perfil” trocado por “Início” (`home-outline`, `router.push('/(tabs)')`).
+
+---
+
+### 2026-03-30 — App motorista: menu na tela Corridas
+
+- **Objetivo**: na aba **Corridas**, não mostrar “Corridas” no menu; mostrar **Início** no lugar (mesmo padrão do Perfil).
+- **Implementado (app)**: `DriverAppMenuModal.tsx` — `segments.includes('rides')`; primeira linha: “Início” em vez de “Corridas”.
+
+---
+
+### 2026-03-30 — App motorista: menu na aba Histórico
+
+- **Objetivo**: na aba **Histórico**, não mostrar “Histórico” no menu; mostrar **Início** no lugar.
+- **Implementado (app)**: `DriverAppMenuModal.tsx` — `segments.includes('history')`; segunda linha: “Início” em vez de “Histórico”.
+
+---
+
+### 2026-03-30 — App motorista: menu na aba Ganhos
+
+- **Objetivo**: na aba **Ganhos**, não mostrar “Ganhos” no menu; mostrar **Início** no lugar.
+- **Implementado (app)**: `DriverAppMenuModal.tsx` — `segments.includes('earnings')`; terceira linha: “Início” em vez de “Ganhos”.
+
+---
+
+### 2026-03-30 — App motorista: ordem do menu + toggle On-line/Off-line
+
+- **Objetivo**: ordem fixa **Início → Corridas → Histórico → Ganhos → Perfil** → separador → **status** → separador → **Sair**; rótulo do status: **Off-line** quando está on-line (ação para ficar off), **On-line** quando está off; **não repetir** o item da aba atual (omitir linha).
+- **Implementado (app)**: `DriverAppMenuModal.tsx` — `useDriverStatus` (`toggleOnlineStatus`); ícones `moon-outline` / `sunny-outline`; loading “Atualizando status…” enquanto `isUpdating`.
+
+---
+
+### 2026-03-30 — App motorista: menu sem “Início” na aba Início
+
+- **Objetivo**: na **página Início** (mapa), não mostrar o item **Início** no menu.
+- **Implementado (app)**: `DriverAppMenuModal.tsx` — `isHomeTab` quando não há segmento `rides`/`history`/`earnings`/`profile` nem `ride-map`.
+
+---
+
+### 2026-03-30 — App motorista: home sem painel inferior (nome + status)
+
+- **Objetivo**: remover o **retângulo flutuante** inferior (nome, central, pill Online/Offline, cartão “Você está offline” + “Ficar online”, texto “Aguardando corridas…”); status on/off permanece no **menu** e no **pill do topo**.
+- **Implementado (app)**: `apps/driver/app/(tabs)/index.tsx` — removido `bottomDock` e estilos associados; aviso “Cadastro em análise” reposicionado acima da tab bar (`bottom` dinâmico).
+
+---
+
+### 2026-03-30 — App motorista: FAB no mapa (estilo passageiro “Sem destino”)
+
+- **Objetivo**: botão flutuante no mapa da home, **mesmo padrão visual** do passageiro (`ModalPedirCorrida`: círculo 52px, borda, sombra, label), com **ícone diferente** de `navigate` (passageiro).
+- **Implementado (app)**:
+  - `components/DriverHomeMapFab.tsx` — FAB reutilizável (`label` + `iconName`).
+  - `index.tsx` — label **“Área”**, ícone **`car-outline`**; ao toque: nova leitura GPS + `animateToRegion` + atualização do marcador.
+
+---
+
+### 2026-03-30 — App motorista: tab bar sem ícones (faixa preta)
+
+- **Objetivo**: remover os ícones/textos da barra inferior e deixar apenas uma **faixa preta**.
+- **Implementado (app)**: `apps/driver/app/(tabs)/_layout.tsx` refeito com `tabBarShowLabel: false`, `tabBarIcon: () => null`, `tabBarStyle` preto (`backgroundColor`/`borderTopColor` `#000`) e altura reduzida (`18`).
+
+---
+
+### 2026-03-31 — App motorista: faixa da tab bar um pouco mais larga
+
+- **Objetivo**: aumentar a altura da faixa preta inferior (antes ~18px) para melhor área tátil/visual.
+- **Implementado (app)**:
+  - `apps/driver/constants/tabBar.ts` — `DRIVER_TAB_BAR_STRIPE_HEIGHT = 40`.
+  - `(tabs)/_layout.tsx` — altura da tab bar `40 + safe area inferior`; `paddingTop` ajustado.
+  - `index.tsx` — FAB e avisos usam `DRIVER_TAB_BAR_STRIPE_HEIGHT + insets.bottom` para não sobrepor a faixa.
+
+---
+
+### 2026-03-31 — App motorista: aceitar corrida na home (chamada)
+
+- **Objetivo**: quando houver corrida disponível e o motorista estiver on-line, mostrar oferta na **Início** (mapa) com **Aceitar** / **Recusar**, além da lista na aba Corridas.
+- **Implementado (backend)**: sem rota nova — `POST /api/app/driver/rides/[id]/accept` já existente.
+- **Implementado (app)**:
+  - `lib/availableRide.ts` — `fetchAvailableRides` → `GET /api/app/driver/rides/available`.
+  - `components/DriverIncomingRideModal.tsx` — modal “Nova corrida” (origem/destino, valor, km, Recusar, Aceitar).
+  - `(tabs)/index.tsx` — polling ~8s quando on-line; não abre se já houver corrida ativa; Recusar descarta localmente o id; Aceitar chama accept e navega para `/ride-map`.
+- **Pendente**: testar em dispositivo com corrida `PENDING`; opcional — endpoint de “recusar” no servidor (hoje só dismiss local).
+- **Próximo passo**: validar fluxo ponta a ponta com passageiro solicitando corrida.
+
+---
+
+### 2026-03-31 — App motorista: botão Aceitar acima da faixa preta
+
+- **Objetivo**: oferta de corrida visível em um **dock central** logo acima da faixa preta, com botão principal **Aceitar corrida**, sem depender do modal em tela cheia.
+- **Implementado (app)**:
+  - `components/DriverIncomingRideDock.tsx` — card flutuante (valor, km, passageiro, X para recusar, botão verde **Aceitar corrida**, link **Ver detalhes**).
+  - `(tabs)/index.tsx` — dock com `bottom: tabBar + safe area + 8`; FAB e aviso “cadastro em análise” sobem quando há oferta; modal de detalhes **não abre sozinho** (só por “Ver detalhes”).
+  - `DriverIncomingRideModal.tsx` — toque fora / botão voltar do SO: `onDismiss` (só fecha o modal); **Recusar** continua com `onDecline`.
+- **Pendente**: testar no dispositivo com corrida disponível.
+
+---
+
+### 2026-03-31 — App motorista: botão central simplificado para aceitar corrida
+
+- **Objetivo**: usar o espaço central acima da faixa preta com um botão único e direto para **Aceitar corrida**.
+- **Implementado (app)**:
+  - `(tabs)/index.tsx` — substituído dock por CTA central simplificado (`Aceitar corrida`) + link `Ver detalhes`.
+  - CTA posicionado no centro (`left/right` simétricos) com `bottom` baseado em `tabBar + safe area`.
+  - FAB “Área” e aviso de cadastro continuam com reposicionamento automático quando há corrida.
+- **Pendente**: validar em aparelho real o toque e espaçamento visual no Android/iOS.
+
+---
+
+### 2026-03-31 — App motorista: CTA central sempre visível
+
+- **Objetivo**: evitar sensação de “botão sumiu” no espaço acima da faixa preta.
+- **Implementado (app)**:
+  - `(tabs)/index.tsx` — botão central agora fica **sempre visível**.
+  - Sem corrida: estado desabilitado com texto **“Aguardando corrida...”**.
+  - Com corrida: estado ativo **“Aceitar corrida”** + link **“Ver detalhes”**.
+- **Pendente**: validar contraste/legibilidade em tema claro/escuro no dispositivo.
+
+---
+
+### 2026-03-31 — App motorista: botão redondo e centralizado
+
+- **Objetivo**: deixar o botão de chamada visualmente destacado, redondo e centralizado acima da faixa preta.
+- **Implementado (app)**:
+  - `(tabs)/index.tsx` — CTA alterado para formato circular (`80x80`, `borderRadius: 40`).
+  - Wrapper ajustado para centralização real (`left: 0`, `right: 0`, `alignItems: center`).
+  - Rótulos do círculo simplificados para caber bem: **“Aceitar”** / **“Aguardando”**.
+- **Pendente**: validar tamanho final do círculo no aparelho (ergonomia de toque e sobreposição com FAB).
+
+---
+
+### 2026-03-31 — App motorista: lock de chamada após aceitar
+
+- **Objetivo**: ao aceitar a corrida, indicar estado ocupado (botão vermelho) e bloquear novas ofertas para o motorista.
+- **Implementado (app)**:
+  - `(tabs)/index.tsx` — novo estado `hasActiveRide` baseado em `GET /api/app/driver/rides/active`.
+  - Após clique em aceitar: lock imediato (`hasActiveRide = true`) para evitar novas chamadas na UI.
+  - CTA central muda para vermelho com rótulo **“Ocupado”** quando há corrida ativa.
+  - Enquanto `hasActiveRide = true`, botão de aceitar e link “Ver detalhes” de novas ofertas ficam bloqueados.
+- **Implementado (backend já existente)**:
+  - `POST /api/app/driver/rides/:id/accept` já impede aceite duplicado (`409` se motorista já estiver em `ACCEPTED/IN_PROGRESS`).
+- **Status atual**: proteção cliente + servidor alinhadas para não receber/aceitar outra chamada durante corrida ativa.
+
+---
+
+### 2026-03-31 — Dispatch: 25s + ondas + rota até embarque
+
+- **Objetivo**: motorista mais próximo tem **25s** para aceitar; depois a oferta passa para **até 3** motoristas mais próximos (em paralelo, primeiro a aceitar leva); repetir ondas excluindo quem já recebeu. Ao aceitar, calcular **melhor rota (Directions) motorista → embarque** e exibir no mapa.
+- **Implementado (banco / Prisma)**:
+  - `Ride`: `pickupRouteCoords`, `pendingOfferDriverIds`, `offerExpiresAt`, `dispatchExcludedDriverIds`, `dispatchWave`; índice `(status, offerExpiresAt)`.
+  - SQL manual: `scripts/sql/add-ride-dispatch-and-pickup-route.sql`.
+- **Implementado (backend)**:
+  - `src/lib/ride-dispatch-config.ts` — `DISPATCH_OFFER_DURATION_MS = 25_000`, 1 motorista na 1ª onda, **3** nas seguintes (`DISPATCH_NEXT_WAVE_DRIVER_COUNT`).
+  - `src/lib/ride-dispatch.ts` — `scheduleRideDispatch`, `expireAndAdvanceRideOffers`, `tryAssignPendingRidesWithoutOffers`.
+  - `src/lib/dispatch-nearest-driver.ts` — `findNearestOnlineDriverIds` (ordenado por distância, exclusões).
+  - `POST /api/app/rides` — não atribui mais automaticamente; cria `PENDING` e agenda 1ª oferta.
+  - `GET /api/app/driver/rides/available` — expira ofertas, tenta reagendar corridas sem oferta, filtra só motoristas na lista da rodada (corrida antiga sem JSON = todos, compatível).
+  - `POST .../accept` — valida oferta; exige última posição do motorista; grava `pickupRouteCoords` via `fetchDrivingRoute`.
+  - `GET .../rides/active` — retorna `pickupRouteCoords`.
+- **Implementado (app motorista)**:
+  - `lib/activeRide.ts` — tipo com `pickupRouteCoords`.
+  - `ride-map.tsx` — em `ACCEPTED` prioriza polyline verde até embarque; em `IN_PROGRESS` usa rota passageiro→destino.
+- **Pendente**: rodar `npx prisma generate` / migração no ambiente (pode falhar se o engine estiver em uso); testar fluxo com 2+ motoristas online e passageiro pedindo corrida.
+- **Sugestão de produto**: número **3** na 2ª+ onda é padrão equilibrado (não lota o app); ajuste fino via `ride-dispatch-config.ts` ou variável de ambiente no futuro.
+
+---
+
+### 2026-03-31 — App passageiro: simulador + Babel (Reanimated)
+
+- **Objetivo**: reduzir crash / tela branca no dev e documentar por que o simulador/emulador “não abre”.
+- **Implementado (app)**:
+  - `apps/passenger/babel.config.js` — `babel-preset-expo` + plugin **`react-native-reanimated/plugin`** (último na lista).
+  - `package.json` — `ios` passa a usar `expo start --ios` (dev no Simulator); `ios:prebuild` = `expo run:ios`.
+  - `docs/BUILD-ANDROID-MAPA.md` — seção **Simulador / emulador não abre o app** (AVD antes, tecla `a`, cache, caminho com espaços, iOS só no Mac).
+- **Pendente**: usuário rodar `npm run start:clear` e `npm run android` com emulador já ligado; se ainda falhar, checar mensagem exata do Metro/Gradle.
+
+---
+
+### 2026-03-31 — App motorista: EAS build Android (preview)
+
+- **Objetivo**: gerar APK do app motorista via EAS (`preview`).
+- **Comando**: `eas build --platform android --profile preview --non-interactive` na pasta `apps/driver` (CLI global `eas`).
+- **Build EAS**: [expo.dev – driver build 8398f256](https://expo.dev/accounts/maiszoom2/projects/driver/builds/8398f256-d3dc-44cf-af50-f4334656ccf1) (status em tempo real no painel).
+- **Implementado (app)**: `apps/driver/package.json` — script `build:android` com o mesmo comando.
+- **Pendente**: aguardar conclusão no Expo; baixar APK pelo link quando status = finished.
+
+---
+
+### 2026-03-31 — Admin master: API `/api/admin/centrais` + lista de centrais
+
+- **Problema**: painel Centrais com 500; console pedia `GET /api/admin/centrais` enquanto o código só expunha `/api/admin/tenants`.
+- **Implementado (backend)**:
+  - `src/app/api/admin/centrais/route.ts` — reexporta `GET`/`POST` de `tenants` (alias estável).
+  - `GET /api/admin/tenants` — remove filtro `isActive: true` (master vê ativas e inativas); inclui `_count` de motoristas e passageiros.
+- **Implementado (frontend)**:
+  - `src/app/admin/centrais/page.tsx` — `fetch('/api/admin/centrais')`.
+- **Pendente**: fazer deploy; se 500 continuar, checar logs Vercel (erro Prisma = migração/coluna faltando no Postgres).
+
+---
+
+### 2026-03-31 — Admin: diagnóstico de erro em GET/POST tenants
+
+- **Objetivo**: facilitar descobrir a causa do 500 em `/api/admin/centrais` e `/api/admin/tenants`.
+- **Implementado (backend)**: `src/app/api/admin/tenants/route.ts` — `console.error` com objeto `{ message, name, stack?, code?, meta? }`; corpo JSON inclui `details: { message, code?, name }` quando `NODE_ENV=development`, `VERCEL_ENV=preview`, ou `ADMIN_API_ERROR_DETAILS=1` (produção Vercel sem essa env não expõe detalhes na resposta).
