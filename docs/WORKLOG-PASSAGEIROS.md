@@ -1152,3 +1152,10 @@ ALTER TABLE tenant_ride_types
 - **Implementado (backend)**: `GET` tenta select completo; em `Prisma P2022` repete com select mínimo e preenche defaults (`type`, `wl*`, etc.) no JSON.
 - **Implementado (frontend)**: `admin/centrais/page.tsx` exibe mensagem da API em `details.message` quando vier no corpo.
 - **SQL**: `scripts/sql/ensure-tenants-prisma-columns.sql` — `ALTER TABLE tenants` com `IF NOT EXISTS` para alinhar ao schema (rodar no Supabase de produção/preview).
+
+---
+
+### 2026-03-31 — Supabase: coluna `users.accountKind` (admin)
+
+- **Erro**: `The column users.accountKind does not exist` ao abrir Centrais (falha em `prisma.user.findFirst` antes da lista de tenants).
+- **SQL**: `scripts/sql/ensure-users-account-kind.sql` (enum `UserAccountKind` + coluna `accountKind`). Alternativa mais ampla: `scripts/sql/add-users-profile-columns-prisma.sql` (telefone, endereço, etc.).
