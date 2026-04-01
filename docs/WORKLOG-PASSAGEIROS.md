@@ -1143,3 +1143,12 @@ ALTER TABLE tenant_ride_types
 
 - **Objetivo**: facilitar descobrir a causa do 500 em `/api/admin/centrais` e `/api/admin/tenants`.
 - **Implementado (backend)**: `src/app/api/admin/tenants/route.ts` — `console.error` com objeto `{ message, name, stack?, code?, meta? }`; corpo JSON inclui `details: { message, code?, name }` quando `NODE_ENV=development`, `VERCEL_ENV=preview`, ou `ADMIN_API_ERROR_DETAILS=1` (produção Vercel sem essa env não expõe detalhes na resposta).
+
+---
+
+### 2026-03-31 — Admin centrais: fallback P2022 + SQL tenants
+
+- **Problema**: preview/prod com 500 em `GET /api/admin/centrais` quando a tabela `tenants` no Postgres não tem colunas que o Prisma espera (ex.: white-label, `showPassengerAds`).
+- **Implementado (backend)**: `GET` tenta select completo; em `Prisma P2022` repete com select mínimo e preenche defaults (`type`, `wl*`, etc.) no JSON.
+- **Implementado (frontend)**: `admin/centrais/page.tsx` exibe mensagem da API em `details.message` quando vier no corpo.
+- **SQL**: `scripts/sql/ensure-tenants-prisma-columns.sql` — `ALTER TABLE tenants` com `IF NOT EXISTS` para alinhar ao schema (rodar no Supabase de produção/preview).

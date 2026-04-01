@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { isMasterAdmin } from '@/lib/auth-master'
 import { ensureDefaultRideTypesForTenant } from '@/lib/tenant-default-ride-types'
@@ -56,6 +57,103 @@ function slugify(value: string): string {
     .slice(0, 60)
 }
 
+/** Select mínimo quando o Postgres ainda não tem colunas novas (Prisma P2022). */
+const TENANT_ADMIN_LIST_CITIES = {
+  where: { isActive: true },
+  orderBy: { createdAt: 'desc' as const },
+  select: {
+    city: {
+      select: {
+        id: true,
+        name: true,
+        state: true,
+      },
+    },
+  },
+} as const
+
+const TENANT_ADMIN_LIST_CORE_SELECT = {
+  id: true,
+  name: true,
+  slug: true,
+  logo: true,
+  isActive: true,
+  createdAt: true,
+  _count: {
+    select: {
+      drivers: true,
+      passengers: true,
+    },
+  },
+  tenantCities: TENANT_ADMIN_LIST_CITIES,
+} as const
+
+const TENANT_ADMIN_LIST_FULL_SELECT = {
+  ...TENANT_ADMIN_LIST_CORE_SELECT,
+  showPassengerAds: true,
+  type: true,
+  wlAppName: true,
+  wlAppPackage: true,
+  wlAppIcon: true,
+  wlSplashImage: true,
+  wlPassengerApkUrl: true,
+  wlDriverApkUrl: true,
+  wlBuildStatus: true,
+  wlLastBuildAt: true,
+} as const
+
+type TenantAdminListRow = {
+  id: string
+  name: string
+  slug: string
+  logo: string | null
+  isActive: boolean
+  createdAt: Date
+  showPassengerAds?: boolean
+  type?: string
+  wlAppName?: string | null
+  wlAppPackage?: string | null
+  wlAppIcon?: string | null
+  wlSplashImage?: string | null
+  wlPassengerApkUrl?: string | null
+  wlDriverApkUrl?: string | null
+  wlBuildStatus?: string
+  wlLastBuildAt?: Date | null
+  _count: { drivers: number; passengers: number }
+  tenantCities: Array<{
+    city: { id: string; name: string; state: string } | null
+  }>
+}
+
+function mapTenantAdminListJson(tenant: TenantAdminListRow) {
+  return {
+    id: tenant.id,
+    name: tenant.name,
+    slug: tenant.slug,
+    logo: tenant.logo,
+    isActive: tenant.isActive,
+    createdAt: tenant.createdAt,
+    showPassengerAds: tenant.showPassengerAds ?? false,
+    type: tenant.type ?? 'brand',
+    wlAppName: tenant.wlAppName ?? null,
+    wlAppPackage: tenant.wlAppPackage ?? null,
+    wlAppIcon: tenant.wlAppIcon ?? null,
+    wlSplashImage: tenant.wlSplashImage ?? null,
+    wlPassengerApkUrl: tenant.wlPassengerApkUrl ?? null,
+    wlDriverApkUrl: tenant.wlDriverApkUrl ?? null,
+    wlBuildStatus: tenant.wlBuildStatus ?? 'idle',
+    wlLastBuildAt: tenant.wlLastBuildAt ?? null,
+    _count: {
+      drivers: tenant._count.drivers,
+      passengers: tenant._count.passengers,
+    },
+    linkedCities: tenant.tenantCities
+      .map((item) => item.city)
+      .filter((city): city is { id: string; name: string; state: string } => Boolean(city)),
+    linkedCity: tenant.tenantCities?.[0]?.city ?? null,
+  }
+}
+
 async function ensurePassengerAdsFeature() {
   await prisma.feature.upsert({
     where: { slug: PASSENGER_ADS_FEATURE_SLUG },
@@ -81,74 +179,32 @@ export async function GET() {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
     }
 
-    const tenants = await prisma.tenant.findMany({
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        logo: true,
-        isActive: true,
-        createdAt: true,
-        showPassengerAds: true,
-        type: true,
-        wlAppName: true,
-        wlAppPackage: true,
-        wlAppIcon: true,
-        wlSplashImage: true,
-        wlPassengerApkUrl: true,
-        wlDriverApkUrl: true,
-        wlBuildStatus: true,
-        wlLastBuildAt: true,
-        _count: {
-          select: {
-            drivers: true,
-            passengers: true,
-          },
-        },
-        tenantCities: {
-          where: { isActive: true },
+    let tenants: TenantAdminListRow[]
+    try {
+      tenants = await prisma.tenant.findMany({
+        orderBy: { createdAt: 'desc' },
+        select: TENANT_ADMIN_LIST_FULL_SELECT,
+      })
+    } catch (firstError) {
+      if (
+        firstError instanceof Prisma.PrismaClientKnownRequestError &&
+        firstError.code === 'P2022'
+      ) {
+        console.warn(
+          '[admin/tenants] GET: P2022 (coluna ausente em tenants). Usando select mínimo. Rode scripts/sql/ensure-tenants-prisma-columns.sql no Supabase.',
+          firstError.meta
+        )
+        tenants = await prisma.tenant.findMany({
           orderBy: { createdAt: 'desc' },
-          select: {
-            city: {
-              select: {
-                id: true,
-                name: true,
-                state: true,
-              },
-            },
-          },
-        },
-      },
-    })
+          select: TENANT_ADMIN_LIST_CORE_SELECT,
+        })
+      } else {
+        throw firstError
+      }
+    }
 
     return NextResponse.json({
-      tenants: tenants.map((tenant) => ({
-        id: tenant.id,
-        name: tenant.name,
-        slug: tenant.slug,
-        logo: tenant.logo,
-        isActive: tenant.isActive,
-        createdAt: tenant.createdAt,
-        showPassengerAds: tenant.showPassengerAds,
-        type: tenant.type,
-        wlAppName: tenant.wlAppName,
-        wlAppPackage: tenant.wlAppPackage,
-        wlAppIcon: tenant.wlAppIcon,
-        wlSplashImage: tenant.wlSplashImage,
-        wlPassengerApkUrl: tenant.wlPassengerApkUrl,
-        wlDriverApkUrl: tenant.wlDriverApkUrl,
-        wlBuildStatus: tenant.wlBuildStatus,
-        wlLastBuildAt: tenant.wlLastBuildAt,
-        _count: {
-          drivers: tenant._count.drivers,
-          passengers: tenant._count.passengers,
-        },
-        linkedCities: tenant.tenantCities
-          .map((item) => item.city)
-          .filter((city): city is { id: string; name: string; state: string } => Boolean(city)),
-        linkedCity: tenant.tenantCities?.[0]?.city ?? null,
-      })),
+      tenants: tenants.map((tenant) => mapTenantAdminListJson(tenant)),
     })
   } catch (error) {
     const { log, details } = formatAdminRouteError(error)

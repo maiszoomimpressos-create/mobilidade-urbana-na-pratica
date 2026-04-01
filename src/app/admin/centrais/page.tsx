@@ -42,15 +42,30 @@ export default function CentraisPage() {
     try {
       setLoading(true)
       const res = await fetch('/api/admin/centrais')
+      const data = await res.json().catch(() => (null as unknown))
       if (!res.ok) {
         if (res.status === 403) {
           setError('Você não tem permissão para acessar esta página.')
           return
         }
-        throw new Error('Erro ao carregar centrais')
+        const body = data as { details?: { message?: string } } | null
+        const detail =
+          body && typeof body.details?.message === 'string'
+            ? body.details.message
+            : null
+        setError(
+          detail
+            ? `Erro ao carregar centrais: ${detail}`
+            : 'Erro ao carregar centrais'
+        )
+        if (detail) console.error('[admin/centrais]', detail)
+        return
       }
-      const data = await res.json()
-      const list = Array.isArray(data) ? data : (Array.isArray(data?.tenants) ? data.tenants : [])
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray((data as { tenants?: unknown })?.tenants)
+          ? (data as { tenants: Tenant[] }).tenants
+          : []
       setTenants(list)
     } catch (err) {
       console.error(err)
